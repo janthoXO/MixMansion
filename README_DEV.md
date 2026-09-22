@@ -251,8 +251,7 @@ class ExampleRetriever(SongRetriever):
     def __init__(self, spotify_settings: SpotifySettings):
         self.spotify_settings = spotify_settings
 
-    def retrieve(self, params: Params) -> list[Song]:
-        ...  # fetch and return Song objects
+    def retrieve(self, params: Params) -> list[Song]: ...  # fetch and return Song objects
 ```
 
 The constructor parameter `spotify_settings` is a *service name*. `bootstrap.build_app` inspects `inspect.signature(cls).parameters` and passes whichever of its known services (currently `settings` and `spotify_settings`) match by name; each service is built lazily, once, on first use. If your adapter needs a new kind of service, add it to the `services` dict in `bootstrap.build_app` — anything else raises `TypeError: <Class> needs unknown service '<name>'`.
