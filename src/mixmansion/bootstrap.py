@@ -9,6 +9,7 @@ from mixmansion.core.usecases import MixMansion
 from mixmansion.groupers.port import Grouper
 from mixmansion.namers.port import PlaylistNamer
 from mixmansion.plan_stores.port import PlanStore
+from mixmansion.pool_stores.file_kv import FileKVPoolStore
 from mixmansion.pool_stores.port import PoolStore
 from mixmansion.retrievers.port import SongRetriever
 from mixmansion.shared.config import AppSettings, ServiceOverrides, load
@@ -20,7 +21,7 @@ CATEGORIZERS: dict[str, type[Categorizer]] = {}
 GROUPERS: dict[str, type[Grouper]] = {}
 NAMERS: dict[str, type[PlaylistNamer]] = {}
 WRITERS: dict[str, type[PlaylistWriter]] = {}
-POOL_STORES: dict[str, type[PoolStore]] = {}
+POOL_STORES: dict[str, type[PoolStore]] = {"file_kv": FileKVPoolStore}
 PLAN_STORES: dict[str, type[PlanStore]] = {}
 
 
