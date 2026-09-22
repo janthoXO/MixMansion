@@ -18,6 +18,7 @@ from mixmansion.retrievers.search import SearchRetriever
 from mixmansion.shared.config import AppSettings, ServiceOverrides, load
 from mixmansion.shared.spotify import SpotifyService, SpotifySettings
 from mixmansion.writers.port import PlaylistWriter
+from mixmansion.writers.spotify import SpotifyWriter
 
 RETRIEVERS: dict[str, type[SongRetriever]] = {
     "playlist": PlaylistRetriever,
@@ -26,7 +27,7 @@ RETRIEVERS: dict[str, type[SongRetriever]] = {
 CATEGORIZERS: dict[str, type[Categorizer]] = {}
 GROUPERS: dict[str, type[Grouper]] = {}
 NAMERS: dict[str, type[PlaylistNamer]] = {}
-WRITERS: dict[str, type[PlaylistWriter]] = {}
+WRITERS: dict[str, type[PlaylistWriter]] = {"spotify": SpotifyWriter}
 POOL_STORES: dict[str, type[PoolStore]] = {"file_kv": FileKVPoolStore}
 PLAN_STORES: dict[str, type[PlanStore]] = {"yaml_file": YamlFilePlanStore}
 

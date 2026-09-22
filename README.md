@@ -97,6 +97,8 @@ Open it and edit before running `apply`:
 
 `apply` refuses to run against a plan that isn't approved. It only ever creates or updates the playlists listed in the plan — nothing else on your account is touched, and no song is ever deleted. Any comments you add to the file are kept: `apply` writes back each playlist's `spotify_id` in place, leaving the rest of the file — including your comments — untouched.
 
+New playlists are private unless you set `MIXMANSION_WRITER_SPOTIFY_PUBLIC=true`; `MIXMANSION_WRITER_SPOTIFY_NAME_PREFIX` (e.g. `"◐ "`) makes them easy to spot in your library.
+
 ## How it works
 
 ```mermaid
