@@ -8,3 +8,6 @@ __pycache__/
 .import_linter_cache/
 dist/
 .DS_Store
+# Plans and pools are your data, not the project's
+plan.yaml
+plan.yml
