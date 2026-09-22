@@ -15,6 +15,15 @@ from mixmansion.shared.spotify import SpotifySettings
 runner = CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def _plain_help(monkeypatch):
+    """CI (GITHUB_ACTIONS) makes Rich emit ANSI codes that split flag names in --help."""
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+    monkeypatch.setenv("NO_COLOR", "1")
+    monkeypatch.setenv("TERM", "dumb")
+
+
 @pytest.fixture
 def cli(monkeypatch, fake_app):
     """Build a fresh Typer app wired to the fakes; `bootstrap.build_app` returns it and
