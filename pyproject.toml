@@ -24,6 +24,7 @@ dependencies = [
     "pydantic-settings>=2.6",
     "questionary>=2.0",
     "requests-cache>=1.2",
+    "ruamel-yaml>=0.19",
     "typer>=0.15",
 ]
 

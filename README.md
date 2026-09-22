@@ -64,7 +64,24 @@ uv run mixmansion apply plan.yaml
 
 ### Editing the plan
 
-`plan` writes a YAML file with `approved: false`. Open it and edit before running `apply`:
+`plan` writes a YAML file with `approved: false`:
+
+```yaml
+version: 1
+approved: false
+generated:
+  pool_size: 42
+  weights: {genre: 0.5, mood: 0.5}
+playlists:
+  - name: "Late Night Drive"
+    description: "Moody synth-driven tracks for empty highways after midnight."
+    spotify_id: null
+    tracks:
+      - {id: 4uLU6hMCjMI75M1A2tKUQC, artist: "The Midnight", title: "Sunset"}
+unassigned: []
+```
+
+Open it and edit before running `apply`:
 
 - move a track to a different playlist
 - remove a track from a playlist
@@ -73,7 +90,7 @@ uv run mixmansion apply plan.yaml
 - drop a whole playlist
 - set `approved: true` once you're happy with it
 
-`apply` refuses to run against a plan that isn't approved. It only ever creates or updates the playlists listed in the plan — nothing else on your account is touched, and no song is ever deleted.
+`apply` refuses to run against a plan that isn't approved. It only ever creates or updates the playlists listed in the plan — nothing else on your account is touched, and no song is ever deleted. Any comments you add to the file are kept: `apply` writes back each playlist's `spotify_id` in place, leaving the rest of the file — including your comments — untouched.
 
 ## How it works
 

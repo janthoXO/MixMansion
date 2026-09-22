@@ -83,10 +83,11 @@ class PlanTrack(BaseModel):
     score: float | None = None  # informational
     tags: list[str] = []  # informational
 
-    @field_validator("id")
+    @field_validator("id", mode="before")
     @classmethod
-    def _normalize_id(cls, v: str) -> str:
-        return parse_track_id(v)
+    def _normalize_id(cls, v: str | int) -> str:
+        # a hand-typed all-digit id is parsed as a number by YAML
+        return parse_track_id(str(v))
 
 
 class Playlist(BaseModel):
