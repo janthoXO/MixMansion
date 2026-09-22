@@ -1,0 +1,10 @@
+docs/
+.env
+.mixmansion/
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.import_linter_cache/
+dist/
+.DS_Store

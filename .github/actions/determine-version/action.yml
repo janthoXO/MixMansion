@@ -1,0 +1,40 @@
+name: Determine Version
+description: Uses the tag if triggered by one, otherwise bumps the patch version of the latest release (or takes the pyproject.toml version if there is no release yet)
+
+outputs:
+  version:
+    description: The determined version number (without v prefix)
+    value: ${{ steps.set-version.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Determine Version
+      id: set-version
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          TAG="${{ github.ref_name }}"
+          echo "Triggered by tag: $TAG"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "Fetching latest release to determine next version..."
+        LATEST_RELEASE=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
+
+        if [ -z "$LATEST_RELEASE" ]; then
+          VERSION=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          echo "No previous release found. Using pyproject.toml version $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "Latest release: $LATEST_RELEASE"
+        IFS='.' read -r -a parts <<< "${LATEST_RELEASE#v}"
+        NEW_VERSION="${parts[0]:-0}.${parts[1]:-0}.$(( ${parts[2]:-0} + 1 ))"
+
+        echo "New version: $NEW_VERSION"
+        echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
