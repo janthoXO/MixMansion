@@ -1,0 +1,10 @@
+{
+  "album": {"album_type": "album", "id": "2noRn2Aes5aoNVsU6iWThc", "name": "Discovery", "release_date": "2001-03-12", "release_date_precision": "day"},
+  "artists": [{"id": "4tZwfgrHOc3mvqYlEYSvVi", "name": "Daft Punk", "type": "artist"}],
+  "duration_ms": 320357,
+  "external_ids": {"isrc": "GBDUW0000053"},
+  "id": "0DiWol3AO6WpXZgp0goxAV",
+  "is_local": false,
+  "name": "One More Time",
+  "type": "track"
+}

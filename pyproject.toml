@@ -25,6 +25,7 @@ dependencies = [
     "questionary>=2.0",
     "requests-cache>=1.2",
     "ruamel-yaml>=0.19",
+    "spotipy>=2.26",
     "typer>=0.15",
 ]
 

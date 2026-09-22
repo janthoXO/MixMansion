@@ -14,7 +14,7 @@ from mixmansion.pool_stores.file_kv import FileKVPoolStore
 from mixmansion.pool_stores.port import PoolStore
 from mixmansion.retrievers.port import SongRetriever
 from mixmansion.shared.config import AppSettings, ServiceOverrides, load
-from mixmansion.shared.spotify import SpotifySettings
+from mixmansion.shared.spotify import SpotifyService, SpotifySettings
 from mixmansion.writers.port import PlaylistWriter
 
 RETRIEVERS: dict[str, type[SongRetriever]] = {}
@@ -48,7 +48,9 @@ def build_app(overrides: ServiceOverrides | None = None) -> MixMansion:
     settings = load(AppSettings)
     services: dict[str, Callable[[], Any]] = {
         "settings": lambda: settings,
-        "spotify_settings": lambda: load(SpotifySettings, **overrides.spotify),
+        "spotify": lambda: SpotifyService(
+            load(SpotifySettings, **overrides.spotify), settings.workspace
+        ),
     }
     built: dict[str, Any] = {}
 

@@ -238,7 +238,7 @@ from pydantic_settings import SettingsConfigDict
 from mixmansion.core.models import Song
 from mixmansion.retrievers.port import SongRetriever
 from mixmansion.shared.config import AdapterParams
-from mixmansion.shared.spotify import SpotifySettings
+from mixmansion.shared.spotify import SpotifyService
 
 
 class ExampleRetriever(SongRetriever):
@@ -248,13 +248,13 @@ class ExampleRetriever(SongRetriever):
         model_config = SettingsConfigDict(env_prefix="MIXMANSION_RETRIEVER_EXAMPLE_")
         limit: int = 20
 
-    def __init__(self, spotify_settings: SpotifySettings):
-        self.spotify_settings = spotify_settings
+    def __init__(self, spotify: SpotifyService):
+        self.spotify = spotify
 
     def retrieve(self, params: Params) -> list[Song]: ...  # fetch and return Song objects
 ```
 
-The constructor parameter `spotify_settings` is a *service name*. `bootstrap.build_app` inspects `inspect.signature(cls).parameters` and passes whichever of its known services (currently `settings` and `spotify_settings`) match by name; each service is built lazily, once, on first use. If your adapter needs a new kind of service, add it to the `services` dict in `bootstrap.build_app` — anything else raises `TypeError: <Class> needs unknown service '<name>'`.
+The constructor parameter `spotify` is a *service name*. `bootstrap.build_app` inspects `inspect.signature(cls).parameters` and passes whichever of its known services (currently `settings` and `spotify`, a `SpotifyService` whose `.client` is an authenticated `spotipy.Spotify`) match by name; each service is built lazily, once, on first use. If your adapter needs a new kind of service, add it to the `services` dict in `bootstrap.build_app` — anything else raises `TypeError: <Class> needs unknown service '<name>'`.
 
 **2. Register it in `bootstrap.py`.**
 
@@ -318,6 +318,15 @@ CI has three workflows, each triggered only when relevant paths change:
 
 ## 9. Known external API limitations
 
-- **Spotify Web API, development-mode apps.** Spotify has restricted the Web API for apps still in development mode more than once — notably in November 2024, when audio features, recommendations, related artists, and Spotify-owned editorial/algorithmic playlists became unavailable to new apps — and again since. Check the [current Spotify Web API docs](https://developer.spotify.com/documentation/web-api) before relying on any endpoint, and never hard-code page sizes; always follow the API's own pagination (`next`) instead of assuming a fixed page count.
+- **Spotify Web API, development-mode apps.** Spotify restricted development-mode apps in November 2024 (no audio features, recommendations or related artists) and again in February 2026 (in force for all dev-mode apps since 9 March 2026; see the [migration guide](https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide)). What that means for MixMansion:
+  - The app owner needs Spotify Premium, and at most 5 allow-listed users can log in.
+  - Playlist contents (`GET /playlists/{id}/items`) are only returned for playlists the user **owns or collaborates on**; followed playlists come back as metadata only. The `tracks` fields were renamed to `items` (and each entry's `track` to `item`).
+  - Batch lookups (`GET /tracks?ids=`, `GET /artists?ids=`) were removed: tracks and artists are fetched one request at a time. spotipy's `tracks()` / `artists()` still call the removed endpoints, so don't use them.
+  - Search returns at most 10 results per request; page with `offset`.
+  - Playlists are created with `POST /me/playlists` (`current_user_playlist_create`); the `/users/{id}/...` endpoints are gone.
+  - Artist objects still have `genres`; track `external_ids` (ISRC) was removed in February and restored in March 2026.
+  - When the quota is exceeded Spotify answers 429 with `reason: QUOTA_EXCEEDED`; spotipy retries with backoff. Quotas are shared by all of a developer's client IDs.
+
+  Check the [changelog](https://developer.spotify.com/documentation/web-api/references/changes/july-2026) before relying on any endpoint, and never hard-code page sizes: follow `next`.
 - **Last.fm tag matching.** The genre categorizer (planned) matches Last.fm tags by artist and title text; this can miss for typos, alternate titles, or obscure tracks, resulting in a song with no genre tags for that source.
 - **LRCLIB lyrics coverage.** The mood categorizer (planned) uses LRCLIB for lyrics; not every song has lyrics available there. A song with no lyrics is "uncovered" for the lyrics-derived part of mood — it's grouped using whatever mood signal is available plus the other dimensions, not treated as dissimilar to everything (see [Grouping explained](#4-grouping-explained)).
