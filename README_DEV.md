@@ -296,7 +296,11 @@ uv run ruff format      # format (drop --check to apply)
 uv run lint-imports     # check the ports & adapters boundaries (.importlinter)
 ```
 
-CI (`.github/workflows/ci.yml`) runs on every push to `main` and every pull request: `uv sync --locked`, then `ruff check`, `ruff format --check`, `lint-imports`, and `pytest`, in that order. A PR won't merge cleanly unless all four pass.
+CI has three workflows, each triggered only when relevant paths change:
+
+- **Build** (`.github/workflows/build.yml`), on every pull request: `uv sync --locked`, `ruff format --check`, `ruff check`, `lint-imports`, `pytest`, `uv build`. All must pass.
+- **Package** (`.github/workflows/package.yml`), on pull requests to `main`: builds the Docker image, smoke-tests `mixmansion --version`, and uploads it as a workflow artifact, so you can download it (`docker load -i mixmansion-latest.tar`) and try the change.
+- **Release** (`.github/workflows/release.yml`), on pushes to `main` and on `v*` tags: determines the version (the tag, else the latest release with the patch bumped, else the `pyproject.toml` version), reuses Build and Package, pushes the image to `ghcr.io/janthoxo/mixmansion` (`:<version>` and `:latest`), and creates a GitHub release with generated notes. To release a minor or major version, push a tag such as `v0.2.0`.
 
 ## 8. Contributing
 

@@ -1,0 +1,17 @@
+# MixMansion
+
+> MixMansion is a Python CLI that sorts a user's Spotify songs into new playlists by vibe (genre and mood similarity), with an editable plan the user reviews and approves before anything changes on Spotify.
+
+MixMansion is built as ports and adapters (hexagonal architecture): a core of domain models and use cases, with retriever, categorizer, grouper, namer, writer, pool-store, and plan-store ports, each with pluggable adapters. It never deletes songs and only touches playlists listed in an approved plan. Naming and mood tagging can run against local or cloud LLMs via LiteLLM. Licensed under the MIT License. Status: the core pipeline (models, use cases, plan lifecycle, CLI) is implemented and tested; the connectors (Spotify client, retrievers, categorizers, grouper, namer, writer, stores) are in progress.
+
+## Docs
+
+- [README](https://github.com/janthoXO/MixMansion/blob/main/README.md): user-facing overview, setup, configuration, and FAQ.
+- [README_DEV](https://github.com/janthoXO/MixMansion/blob/main/README_DEV.md): architecture, domain model, pipeline internals, and how to add a new adapter.
+- [CONTRIBUTING](https://github.com/janthoXO/MixMansion/blob/main/CONTRIBUTING.md): how to contribute, branch naming, and PR requirements.
+- [.env.example](https://github.com/janthoXO/MixMansion/blob/main/.env.example): the full list of configuration settings and their defaults.
+
+## Optional
+
+- [Issues](https://github.com/janthoXO/MixMansion/issues): open issues, including the connectors not yet implemented.
+- [SECURITY](https://github.com/janthoXO/MixMansion/blob/main/SECURITY.md): how to report a vulnerability.

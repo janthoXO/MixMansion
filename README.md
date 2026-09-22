@@ -2,8 +2,9 @@
 
 MixMansion is a Spotify playlist organizer that sorts your songs into new playlists by mood and vibe, using genre and mood similarity plus an LLM to name the results, with a plan you review and approve before anything changes on Spotify.
 
-[![CI](https://github.com/janthoXO/MixMansion/actions/workflows/ci.yml/badge.svg)](https://github.com/janthoXO/MixMansion/actions/workflows/ci.yml)
+[![Release](https://github.com/janthoXO/MixMansion/actions/workflows/release.yml/badge.svg)](https://github.com/janthoXO/MixMansion/actions/workflows/release.yml)
 ![Python](https://img.shields.io/badge/python-3.12%2B-blue)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 MixMansion is not affiliated with or endorsed by Spotify.
 
@@ -20,6 +21,60 @@ The core pipeline (models, use cases, plan lifecycle, CLI) is implemented and te
 - Emits an editable plan file you approve before anything is written to Spotify
 - Never deletes songs and never touches a playlist outside the plan
 
+## Installation
+
+Prerequisites:
+
+- Python 3.12 or later and [uv](https://docs.astral.sh/uv/)
+- A Spotify developer app: create one at the [Spotify developer dashboard](https://developer.spotify.com/dashboard), set its redirect URI to `http://127.0.0.1:8888/callback`, and, since the app starts in development mode, add your own Spotify account as a user under the app's settings
+- A [Last.fm API key](https://www.last.fm/api/account/create) (used by the genre categorizer, once implemented)
+- Either a local LLM (e.g. [Ollama](https://ollama.com/)) or an API key for a cloud LLM provider (used by the mood categorizer and the namer, once implemented)
+
+### With uv
+
+```bash
+git clone https://github.com/janthoXO/MixMansion.git
+cd MixMansion
+uv sync
+cp .env.example .env
+# edit .env: fill in SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET at minimum
+```
+
+### With Docker
+
+Every release publishes an image to the GitHub Container Registry. Run it from a folder that holds your `.env`; the workspace (`.mixmansion/`, with the pool, caches and Spotify token) is created there too:
+
+```bash
+docker run --rm -it -v "$PWD:/data" ghcr.io/janthoxo/mixmansion --help
+```
+
+Logging in to Spotify from inside the container comes with the Spotify connector.
+
+## Usage
+
+First run, once the connectors are implemented:
+
+```bash
+uv run mixmansion pool add playlist          # pull songs from your playlists into the pool
+uv run mixmansion pool show                  # see what's in the pool
+uv run mixmansion plan -o plan.yaml          # group the pool and write a plan
+# edit plan.yaml, then set `approved: true`
+uv run mixmansion apply plan.yaml
+```
+
+### Editing the plan
+
+`plan` writes a YAML file with `approved: false`. Open it and edit before running `apply`:
+
+- move a track to a different playlist
+- remove a track from a playlist
+- add a track — a bare Spotify id, a `spotify:track:...` URI, or an `open.spotify.com/track/...` URL all work
+- rename a playlist or change its description
+- drop a whole playlist
+- set `approved: true` once you're happy with it
+
+`apply` refuses to run against a plan that isn't approved. It only ever creates or updates the playlists listed in the plan — nothing else on your account is touched, and no song is ever deleted.
+
 ## How it works
 
 ```mermaid
@@ -33,48 +88,6 @@ flowchart LR
     G --> H[Apply to Spotify]
 ```
 Songs are retrieved into a pool, scored for similarity on each dimension (genre, mood), grouped into playlists, named, and written to a plan file you edit and approve before `apply` touches Spotify.
-
-## Quick setup
-
-Prerequisites:
-
-- Python 3.12 or later and [uv](https://docs.astral.sh/uv/)
-- A Spotify developer app: create one at the [Spotify developer dashboard](https://developer.spotify.com/dashboard), set its redirect URI to `http://127.0.0.1:8888/callback`, and, since the app starts in development mode, add your own Spotify account as a user under the app's settings
-- A [Last.fm API key](https://www.last.fm/api/account/create) (used by the genre categorizer, once implemented)
-- Either a local LLM (e.g. [Ollama](https://ollama.com/)) or an API key for a cloud LLM provider (used by the mood categorizer and the namer, once implemented)
-
-Install and configure:
-
-```bash
-git clone https://github.com/janthoXO/MixMansion.git
-cd MixMansion
-uv sync
-cp .env.example .env
-# edit .env: fill in SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET at minimum
-```
-
-First run, once the connectors are implemented:
-
-```bash
-uv run mixmansion pool add playlist          # pull songs from your playlists into the pool
-uv run mixmansion pool show                  # see what's in the pool
-uv run mixmansion plan -o plan.yaml          # group the pool and write a plan
-# edit plan.yaml, then set `approved: true`
-uv run mixmansion apply plan.yaml
-```
-
-## Editing the plan
-
-`plan` writes a YAML file with `approved: false`. Open it and edit before running `apply`:
-
-- move a track to a different playlist
-- remove a track from a playlist
-- add a track — a bare Spotify id, a `spotify:track:...` URI, or an `open.spotify.com/track/...` URL all work
-- rename a playlist or change its description
-- drop a whole playlist
-- set `approved: true` once you're happy with it
-
-`apply` refuses to run against a plan that isn't approved. It only ever creates or updates the playlists listed in the plan — nothing else on your account is touched, and no song is ever deleted.
 
 ## Architecture in brief
 
@@ -130,6 +143,10 @@ Mood tags come from lyrics (via LRCLIB) and genre tags from Spotify and Last.fm,
 **The local LLM is slow.**
 Local models are much slower than cloud APIs, especially for larger models. Completions and embeddings are cached on disk, so re-running the pipeline on the same pool doesn't re-query anything already answered. Try a smaller model, or a cloud provider, if speed matters more than running locally.
 
+## Contributing
+
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md); the architecture and development setup are in [README_DEV.md](README_DEV.md). Please follow the [Code of Conduct](CODE_OF_CONDUCT.md), and report security issues as described in [SECURITY.md](SECURITY.md), not in public issues.
+
 ## License
 
-Not chosen yet (TBD).
+[MIT](LICENSE). MixMansion is not affiliated with or endorsed by Spotify.
