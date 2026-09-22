@@ -10,7 +10,7 @@ MixMansion is not affiliated with or endorsed by Spotify.
 
 ## Status
 
-The core pipeline (models, use cases, plan lifecycle, CLI) is implemented and tested. The connectors that talk to the outside world — the Spotify client, the playlist and search retrievers, the genre and mood categorizers, the Louvain grouper, the LLM namer, the Spotify writer, and the pool/plan file stores — are planned but not implemented yet (see the [open issues](https://github.com/janthoXO/MixMansion/issues)). Until they land, `mixmansion --help` works, but `pool add`, `plan` and `apply` have no adapters registered to run against. This README documents the tool as it is meant to work once those connectors ship; sections that depend on a specific connector say so.
+The first round is complete: playlist and search retrievers, genre and mood categorizers, the Louvain grouper, the LLM namer, the Spotify writer, and file-based pool and plan stores. Next up are a genre retriever, a Postgres pool store and a REST API (see the [open issues](https://github.com/janthoXO/MixMansion/issues)).
 
 ## Features
 
@@ -27,8 +27,8 @@ Prerequisites:
 
 - Python 3.12 or later and [uv](https://docs.astral.sh/uv/)
 - A Spotify developer app: create one at the [Spotify developer dashboard](https://developer.spotify.com/dashboard), set its redirect URI to `http://127.0.0.1:8888/callback`, and, since the app starts in development mode, add your own Spotify account as a user under the app's settings
-- A [Last.fm API key](https://www.last.fm/api/account/create) (used by the genre categorizer, once implemented)
-- Either a local LLM (e.g. [Ollama](https://ollama.com/)) or an API key for a cloud LLM provider (used by the mood categorizer and the namer, once implemented)
+- A [Last.fm API key](https://www.last.fm/api/account/create) (used by the genre categorizer)
+- Either a local LLM (e.g. [Ollama](https://ollama.com/)) or an API key for a cloud LLM provider (used by the mood categorizer and the namer)
 
 ### With uv
 
@@ -52,19 +52,43 @@ Logging in to Spotify from inside the container comes with the Spotify connector
 
 ## Usage
 
-First run, once the connectors are implemented:
+A first run:
 
 ```bash
-uv run mixmansion pool add playlist          # pull songs from your playlists into the pool
+uv run mixmansion pool add playlist          # picker: choose playlists interactively
+uv run mixmansion pool add playlist --playlist-ids <id>,https://open.spotify.com/playlist/<id>
+uv run mixmansion pool add search --query "rainy day jazz"   # picker: choose search hits
+uv run mixmansion pool add search --query "rainy day jazz" --track-ids <id>,<id>
 uv run mixmansion pool show                  # see what's in the pool
-uv run mixmansion plan -o plan.yaml          # group the pool and write a plan
+uv run mixmansion plan -o plan.yaml          # choose categories and weights, then write a plan
 # edit plan.yaml, then set `approved: true`
 uv run mixmansion apply plan.yaml
 ```
 
+`plan` asks which categories should shape the playlists (genre, mood, …; all of them by default) and how much each one counts. Pressing Enter keeps them equal, and entering `3` for genre against `1` for mood makes genre count three times as much. To skip the questions, pass the weights yourself: `plan --by genre=3 --by mood=1`. Scripts and CI aren't asked; they use `MIXMANSION_WEIGHTS`.
+
+Only playlists you own or collaborate on can be read back (a Spotify restriction for development-mode apps), so the picker and `pool add playlist` only work with those. Spotify returns at most 10 search hits per request, so `pool add search` pages through results to reach `--limit` (default 20).
+
 ### Editing the plan
 
-`plan` writes a YAML file with `approved: false`. Open it and edit before running `apply`:
+`plan` writes a YAML file with `approved: false`:
+
+```yaml
+version: 1
+approved: false
+generated:
+  pool_size: 42
+  weights: {genre: 0.5, mood: 0.5}
+playlists:
+  - name: "Late Night Drive"
+    description: "Moody synth-driven tracks for empty highways after midnight."
+    spotify_id: null
+    tracks:
+      - {id: 4uLU6hMCjMI75M1A2tKUQC, artist: "The Midnight", title: "Sunset"}
+unassigned: []
+```
+
+Open it and edit before running `apply`:
 
 - move a track to a different playlist
 - remove a track from a playlist
@@ -73,7 +97,9 @@ uv run mixmansion apply plan.yaml
 - drop a whole playlist
 - set `approved: true` once you're happy with it
 
-`apply` refuses to run against a plan that isn't approved. It only ever creates or updates the playlists listed in the plan — nothing else on your account is touched, and no song is ever deleted.
+`apply` refuses to run against a plan that isn't approved. It only ever creates or updates the playlists listed in the plan — nothing else on your account is touched, and no song is ever deleted. Any comments you add to the file are kept: `apply` writes back each playlist's `spotify_id` in place, leaving the rest of the file — including your comments — untouched.
+
+New playlists are private unless you set `MIXMANSION_WRITER_SPOTIFY_PUBLIC=true`; `MIXMANSION_WRITER_SPOTIFY_NAME_PREFIX` (e.g. `"◐ "`) makes them easy to spot in your library.
 
 ## How it works
 
@@ -117,9 +143,23 @@ Settings are read from real environment variables, then a `.env` file, then defa
 | `MIXMANSION_WORKSPACE` | Local state directory (caches, pool, tokens); default `.mixmansion` |
 | `MIXMANSION_WEIGHTS` | Default categorizer weights, e.g. `{"genre": 0.5, "mood": 0.5}` |
 | `MIXMANSION_GROUPER`, `MIXMANSION_NAMER` | Which grouper/namer adapter to use by default |
-| `LASTFM_API_KEY` | Last.fm key for the genre categorizer *(added with the connector)* |
-| `LLM_PROVIDER`, `LLM_MODEL`, `LLM_URL`, `LLM_API_KEY` | LLM used for naming and mood tagging *(added with the connector)* |
-| `EMBEDDINGS_PROVIDER`, `EMBEDDINGS_MODEL` | Embedding model for mood similarity *(added with the connector)* |
+| `LASTFM_API_KEY` | Last.fm key for the genre categorizer ([create one](https://www.last.fm/api/account/create)) |
+| `LLM_PROVIDER`, `LLM_MODEL`, `LLM_URL`, `LLM_API_KEY` | LLM used for naming and mood tagging (see below) |
+| `EMBEDDINGS_PROVIDER`, `EMBEDDINGS_MODEL` | Embedding model for mood similarity (see below) |
+
+### Local or cloud LLM
+
+The LLM (mood tags, playlist names) and the embeddings model (mood similarity) are set separately, so you can mix them. Only the provider and model are required; everything goes through [LiteLLM](https://docs.litellm.ai/docs/providers), so any provider it supports works.
+
+- **Local with Ollama:** `ollama pull qwen2.5:14b && ollama pull nomic-embed-text`, then `LLM_PROVIDER=ollama`, `LLM_MODEL=qwen2.5:14b`, `LLM_URL=http://localhost:11434`, and the same for `EMBEDDINGS_*` with `nomic-embed-text`. Nothing leaves your machine except the Spotify, Last.fm and LRCLIB lookups.
+- **LM Studio, vLLM or another OpenAI-compatible server:** `LLM_PROVIDER=openai_compatible` and `LLM_URL=<server>/v1`.
+- **Cloud:** e.g. `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-haiku-4-5`, `LLM_API_KEY=...`; embeddings e.g. `EMBEDDINGS_PROVIDER=openai`, `EMBEDDINGS_MODEL=text-embedding-3-small`, `EMBEDDINGS_API_KEY=...`.
+
+**Mood tagging** looks up lyrics on [LRCLIB](https://lrclib.net) (no key needed), then asks the LLM for mood and theme tags in batches of 10 songs. Expect roughly 5–30 seconds per batch with a 14B model on a laptop GPU, so a 500-song pool takes a few minutes locally and well under a minute with a cloud model. Smaller local models work better with `--opt mood.batch_size=5`.
+
+Answers are cached in `.mixmansion/llm_cache.sqlite`, so running `plan` again on the same songs costs nothing.
+
+The `llm` namer takes its own options, e.g. `--opt llm.language=de` or `--opt llm.style="lowercase, no emojis"`; see `.env.example` for `MIXMANSION_NAMER_LLM_*` defaults.
 
 See `.env.example` for the full, current list and defaults.
 
@@ -129,10 +169,10 @@ See `.env.example` for the full, current list and defaults.
 No. It only creates or updates the playlists listed in a plan you've approved. Nothing else on your account is touched, and songs are never deleted from your library.
 
 **Can I run it fully locally?**
-Yes, once the LLM connector lands: point `LLM_PROVIDER`/`LLM_MODEL` at a local model server such as Ollama and no data goes to a cloud LLM. Spotify itself, of course, is always a cloud API.
+Yes: point `LLM_PROVIDER`/`LLM_MODEL` at a local model server such as Ollama and no data goes to a cloud LLM. Spotify, Last.fm and LRCLIB lookups still go over the internet.
 
 **What data does it send to Spotify, Last.fm or an LLM?**
-Spotify: playlist and track metadata via its Web API, plus the playlists MixMansion creates. Last.fm (planned): artist and track names, to fetch genre tags. An LLM provider (planned): song titles, artists, lyrics and tags, to generate mood labels and playlist names/descriptions.
+Spotify: playlist and track metadata via its Web API, plus the playlists MixMansion creates. Last.fm: artist and track names, to fetch genre tags. LRCLIB: artist, title, album and duration, to fetch lyrics. Your LLM provider: song titles, artists, lyrics and tags, to generate mood labels and playlist names/descriptions.
 
 **I'm getting a Spotify authorization error.**
 Check that `SPOTIFY_REDIRECT_URI` matches the redirect URI in your app's dashboard exactly, and that your Spotify account is added as a user under the app's settings (required while the app is in development mode).

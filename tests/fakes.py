@@ -63,6 +63,8 @@ class FakeRetriever(SongRetriever):
 
 
 class FakeCategorizer(Categorizer):
+    """A categorizer that splits songs by index parity."""
+
     name = "fake"
 
     class Params(AdapterParams):

@@ -19,11 +19,15 @@ classifiers = [
     "Topic :: Utilities",
 ]
 dependencies = [
+    "litellm==1.102.0",
+    "networkx>=3.5",
     "numpy>=2.1",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "questionary>=2.0",
     "requests-cache>=1.2",
+    "ruamel-yaml>=0.19",
+    "spotipy>=2.26",
     "typer>=0.15",
 ]
 

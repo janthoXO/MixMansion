@@ -179,16 +179,16 @@ One CLI run from `pool add` through `apply`; the plan is saved right after each 
 
 ## 4. Grouping explained
 
-The `louvain` grouper (`groupers/louvain.py`, [issue #12](https://github.com/janthoXO/MixMansion/issues/12), not yet implemented) combines the per-dimension `SimilarityGraph`s into playlists:
+The `louvain` grouper (`groupers/louvain.py`) combines the per-dimension `SimilarityGraph`s into playlists:
 
 1. **Fusion.** For a pair of songs, only the dimensions that have data for *both* songs (i.e. both are in that dimension's `covered` set) count toward the fused weight; each counted dimension's edge weight (0 if there's no edge) is averaged, weighted by the user's per-dimension weight. This means a song with no mood data (e.g. an instrumental with no lyrics) is grouped on genre alone instead of being penalized as dissimilar to everything.
 2. **Communities.** The fused graph is partitioned with `networkx.community.louvain_communities`, tuned by `resolution` (higher = more, smaller groups).
-3. **Merging small groups.** Communities smaller than `min_size` are repeatedly folded into the community they have the highest affinity with, until none are left undersized (or only one community remains).
+3. **Merging small groups.** Communities smaller than `min_size` are repeatedly folded into the community they share the highest mean edge weight with (an unconnected one goes to the largest), until none are left undersized (or only one community remains).
 4. **Soft assignment.** Each song's affinity to a community is the mean fused edge weight to that community's members. A song joins its best-fitting community, plus any other community whose affinity is within a factor of `tau` of the best (`A(s, c) >= (1 - tau) * A(s, c*)`), up to `max_memberships` playlists.
 5. **Score and order.** Each song's score in a group is its affinity to that group; groups list songs sorted by score, descending, so the plan's playlist order roughly reflects "most typical first."
 6. **Unassigned.** Songs with no edges at all in the fused graph land in `Grouping.unassigned` rather than being forced into a group.
 
-Tuning knobs (env prefix `MIXMANSION_GROUPER_LOUVAIN_`, once implemented):
+Tuning knobs (env prefix `MIXMANSION_GROUPER_LOUVAIN_`, or per run with `--opt louvain.<field>=<value>`):
 
 | Field | Default | Effect |
 |---|---|---|
@@ -197,6 +197,13 @@ Tuning knobs (env prefix `MIXMANSION_GROUPER_LOUVAIN_`, once implemented):
 | `tau` | `0.05` | How close a second-best fit has to be for a song to also join that group |
 | `max_memberships` | `2` | Maximum number of playlists a single song can appear in |
 | `seed` | `42` | Makes runs repeatable for the same input |
+
+How to tune:
+
+- **Too few, huge playlists:** raise `resolution` (e.g. 1.5–2.0) or lower `min_size`.
+- **Many tiny playlists:** raise `min_size`, or lower `resolution` below 1.0.
+- **Too many songs in two playlists:** lower `tau` (0 means only exact ties) or set `max_memberships=1`.
+- **Nobody in two playlists:** raise `tau` (e.g. 0.1–0.2).
 
 ## 5. Configuration
 
@@ -238,7 +245,7 @@ from pydantic_settings import SettingsConfigDict
 from mixmansion.core.models import Song
 from mixmansion.retrievers.port import SongRetriever
 from mixmansion.shared.config import AdapterParams
-from mixmansion.shared.spotify import SpotifySettings
+from mixmansion.shared.spotify import SpotifyService
 
 
 class ExampleRetriever(SongRetriever):
@@ -248,13 +255,13 @@ class ExampleRetriever(SongRetriever):
         model_config = SettingsConfigDict(env_prefix="MIXMANSION_RETRIEVER_EXAMPLE_")
         limit: int = 20
 
-    def __init__(self, spotify_settings: SpotifySettings):
-        self.spotify_settings = spotify_settings
+    def __init__(self, spotify: SpotifyService):
+        self.spotify = spotify
 
     def retrieve(self, params: Params) -> list[Song]: ...  # fetch and return Song objects
 ```
 
-The constructor parameter `spotify_settings` is a *service name*. `bootstrap.build_app` inspects `inspect.signature(cls).parameters` and passes whichever of its known services (currently `settings` and `spotify_settings`) match by name; each service is built lazily, once, on first use. If your adapter needs a new kind of service, add it to the `services` dict in `bootstrap.build_app` — anything else raises `TypeError: <Class> needs unknown service '<name>'`.
+The constructor parameter `spotify` is a *service name*. `bootstrap.build_app` inspects `inspect.signature(cls).parameters` and passes whichever of its known services (currently `settings` and `spotify`, a `SpotifyService` whose `.client` is an authenticated `spotipy.Spotify`) match by name; each service is built lazily, once, on first use. If your adapter needs a new kind of service, add it to the `services` dict in `bootstrap.build_app` — anything else raises `TypeError: <Class> needs unknown service '<name>'`.
 
 **2. Register it in `bootstrap.py`.**
 
@@ -318,6 +325,15 @@ CI has three workflows, each triggered only when relevant paths change:
 
 ## 9. Known external API limitations
 
-- **Spotify Web API, development-mode apps.** Spotify has restricted the Web API for apps still in development mode more than once — notably in November 2024, when audio features, recommendations, related artists, and Spotify-owned editorial/algorithmic playlists became unavailable to new apps — and again since. Check the [current Spotify Web API docs](https://developer.spotify.com/documentation/web-api) before relying on any endpoint, and never hard-code page sizes; always follow the API's own pagination (`next`) instead of assuming a fixed page count.
-- **Last.fm tag matching.** The genre categorizer (planned) matches Last.fm tags by artist and title text; this can miss for typos, alternate titles, or obscure tracks, resulting in a song with no genre tags for that source.
-- **LRCLIB lyrics coverage.** The mood categorizer (planned) uses LRCLIB for lyrics; not every song has lyrics available there. A song with no lyrics is "uncovered" for the lyrics-derived part of mood — it's grouped using whatever mood signal is available plus the other dimensions, not treated as dissimilar to everything (see [Grouping explained](#4-grouping-explained)).
+- **Spotify Web API, development-mode apps.** Spotify restricted development-mode apps in November 2024 (no audio features, recommendations or related artists) and again in February 2026 (in force for all dev-mode apps since 9 March 2026; see the [migration guide](https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide)). What that means for MixMansion:
+  - The app owner needs Spotify Premium, and at most 5 allow-listed users can log in.
+  - Playlist contents (`GET /playlists/{id}/items`) are only returned for playlists the user **owns or collaborates on**; followed playlists come back as metadata only. The `tracks` fields were renamed to `items` (and each entry's `track` to `item`).
+  - Batch lookups (`GET /tracks?ids=`, `GET /artists?ids=`) were removed: tracks and artists are fetched one request at a time. spotipy's `tracks()` / `artists()` still call the removed endpoints, so don't use them.
+  - Search returns at most 10 results per request; page with `offset`.
+  - Playlists are created with `POST /me/playlists` (`current_user_playlist_create`); the `/users/{id}/...` endpoints are gone.
+  - Artist objects still have `genres`; track `external_ids` (ISRC) was removed in February and restored in March 2026.
+  - When the quota is exceeded Spotify answers 429 with `reason: QUOTA_EXCEEDED`; spotipy retries with backoff. Quotas are shared by all of a developer's client IDs.
+
+  Check the [changelog](https://developer.spotify.com/documentation/web-api/references/changes/july-2026) before relying on any endpoint, and never hard-code page sizes: follow `next`.
+- **Last.fm tag matching.** The genre categorizer matches Last.fm tags by artist and title text; this can miss for typos, alternate titles, or obscure tracks, resulting in a song with no genre tags for that source.
+- **LRCLIB lyrics coverage.** The mood categorizer uses LRCLIB for lyrics; not every song has lyrics available there. A song with no lyrics is "uncovered" for the lyrics-derived part of mood — it's grouped using whatever mood signal is available plus the other dimensions, not treated as dissimilar to everything (see [Grouping explained](#4-grouping-explained)).
