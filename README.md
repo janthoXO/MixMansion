@@ -142,8 +142,18 @@ Settings are read from real environment variables, then a `.env` file, then defa
 | `MIXMANSION_WEIGHTS` | Default categorizer weights, e.g. `{"genre": 0.5, "mood": 0.5}` |
 | `MIXMANSION_GROUPER`, `MIXMANSION_NAMER` | Which grouper/namer adapter to use by default |
 | `LASTFM_API_KEY` | Last.fm key for the genre categorizer *(added with the connector)* |
-| `LLM_PROVIDER`, `LLM_MODEL`, `LLM_URL`, `LLM_API_KEY` | LLM used for naming and mood tagging *(added with the connector)* |
-| `EMBEDDINGS_PROVIDER`, `EMBEDDINGS_MODEL` | Embedding model for mood similarity *(added with the connector)* |
+| `LLM_PROVIDER`, `LLM_MODEL`, `LLM_URL`, `LLM_API_KEY` | LLM used for naming and mood tagging (see below) |
+| `EMBEDDINGS_PROVIDER`, `EMBEDDINGS_MODEL` | Embedding model for mood similarity (see below) |
+
+### Local or cloud LLM
+
+The LLM (mood tags, playlist names) and the embeddings model (mood similarity) are set separately, so you can mix them. Only the provider and model are required; everything goes through [LiteLLM](https://docs.litellm.ai/docs/providers), so any provider it supports works.
+
+- **Local with Ollama:** `ollama pull qwen2.5:14b && ollama pull nomic-embed-text`, then `LLM_PROVIDER=ollama`, `LLM_MODEL=qwen2.5:14b`, `LLM_URL=http://localhost:11434`, and the same for `EMBEDDINGS_*` with `nomic-embed-text`. Nothing leaves your machine except the Spotify, Last.fm and LRCLIB lookups.
+- **LM Studio, vLLM or another OpenAI-compatible server:** `LLM_PROVIDER=openai_compatible` and `LLM_URL=<server>/v1`.
+- **Cloud:** e.g. `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-haiku-4-5`, `LLM_API_KEY=...`; embeddings e.g. `EMBEDDINGS_PROVIDER=openai`, `EMBEDDINGS_MODEL=text-embedding-3-small`, `EMBEDDINGS_API_KEY=...`.
+
+Answers are cached in `.mixmansion/llm_cache.sqlite`, so running `plan` again on the same songs costs nothing.
 
 See `.env.example` for the full, current list and defaults.
 

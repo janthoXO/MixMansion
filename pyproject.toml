@@ -19,6 +19,7 @@ classifiers = [
     "Topic :: Utilities",
 ]
 dependencies = [
+    "litellm==1.102.0",
     "numpy>=2.1",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",

@@ -16,6 +16,7 @@ from mixmansion.retrievers.playlist import PlaylistRetriever
 from mixmansion.retrievers.port import SongRetriever
 from mixmansion.retrievers.search import SearchRetriever
 from mixmansion.shared.config import AppSettings, ServiceOverrides, load
+from mixmansion.shared.llm import LLMService
 from mixmansion.shared.spotify import SpotifyService, SpotifySettings
 from mixmansion.writers.port import PlaylistWriter
 from mixmansion.writers.spotify import SpotifyWriter
@@ -57,6 +58,7 @@ def build_app(overrides: ServiceOverrides | None = None) -> MixMansion:
         "spotify": lambda: SpotifyService(
             load(SpotifySettings, **overrides.spotify), settings.workspace
         ),
+        "llm": lambda: LLMService(settings.workspace),
     }
     built: dict[str, Any] = {}
 
