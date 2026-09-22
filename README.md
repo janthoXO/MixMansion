@@ -60,10 +60,12 @@ uv run mixmansion pool add playlist --playlist-ids <id>,https://open.spotify.com
 uv run mixmansion pool add search --query "rainy day jazz"   # picker: choose search hits
 uv run mixmansion pool add search --query "rainy day jazz" --track-ids <id>,<id>
 uv run mixmansion pool show                  # see what's in the pool
-uv run mixmansion plan -o plan.yaml          # group the pool and write a plan
+uv run mixmansion plan -o plan.yaml          # choose categories and weights, then write a plan
 # edit plan.yaml, then set `approved: true`
 uv run mixmansion apply plan.yaml
 ```
+
+`plan` asks which categories should shape the playlists (genre, mood, …; all of them by default) and how much each one counts. Pressing Enter keeps them equal, and entering `3` for genre against `1` for mood makes genre count three times as much. To skip the questions, pass the weights yourself: `plan --by genre=3 --by mood=1`. Scripts and CI aren't asked; they use `MIXMANSION_WEIGHTS`.
 
 Only playlists you own or collaborate on can be read back (a Spotify restriction for development-mode apps), so the picker and `pool add playlist` only work with those. Spotify returns at most 10 search hits per request, so `pool add search` pages through results to reach `--limit` (default 20).
 

@@ -1,0 +1,177 @@
+# MixMansion plan. Review and edit, then set `approved: true` and run `mixmansion apply <file>`.
+# - move a song: move its line under another playlist
+# - remove a song from a playlist: delete the line (nothing is deleted on Spotify)
+# - add a song: add `- {id: <spotify id or track URL>}`
+# - drop a playlist: delete its block
+# artist / title / score / tags are informational and ignored on load.
+version: 1
+approved: false
+generated:
+  pool_id: default
+  pool_size: 140
+  weights: {genre: 0.5, mood: 0.5}
+  categorizers:
+    genre: {k: 15, spotify_weight: 1.0, lastfm_weight: 1.0, lastfm_min_count: 10, labels_per_song: 5}
+    mood: {k: 15, batch_size: 10, tags_per_song: 8, lyrics_max_chars: 1500}
+  grouper:
+    louvain: {resolution: 1.0, min_size: 15, tau: 0.05, max_memberships: 2, seed: 42}
+  namer:
+    llm: {sample_size: 15, top_tags: 10, max_name_length: 40, language: en, style: ''}
+playlists:
+  - name: Mix 1 · pop, emotional, indie
+    description: pop, emotional, indie
+    spotify_id:
+    tracks:
+      - {id: 2IjyFRCRn8x1bEquOM3vxg, artist: Justin Bieber, title: Purpose, score: 0.417, tags: [pop, black metal, rnb, hip hop, melancholic, spiritual, late night, heartbreak, redemption, soul searching, emotional, purpose]}
+      - {id: 1mXVgsBdtIVeCLJnSnmtdV, artist: Sam Smith, title: Too Good At Goodbyes, score: 0.344, tags: [soft pop, pop, ballad, heartbreak, resilience, emotional, painful, loneliness, self protection, regret, sadness]}
+      - {id: 7eeHCS30IlVQyC4OsTc1kT, artist: Ryan Mack, title: Sleepyhead, score: 0.337, tags: [pop]}
+      - {id: 3MTCUbfONUfmAbuUSPMvBf, artist: GRAHAM, title: Mad It's My Fault, score: 0.335, tags: [pop, ambient]}
+      - {id: 4Kh6cq3XgOGUK9yXQu7RTq, artist: 'Royal & the Serpent, Chri$tian Gate$', title: overwhelmed - Chri$tian Gate$ remix, score: 0.315, tags: [pop, electronic, pop rock]}
+      - {id: 2HER9vwImxFnejMGTEnqK5, artist: Kyle Hume, title: alive (it's a lie) - demo, score: 0.313, tags: [pop, indie pop, mysterious, dark, emotional, personal, introspective, late night, contemplative, existential]}
+      - {id: 1ei3hzQmrgealgRKFxIcWn, artist: Benson Boone, title: In The Stars, score: 0.305, tags: [pop, my top songs, 2020s, ballad]}
+      - {id: 1kN9UiyOSRVCrSc49ft0lp, artist: Justin Bieber, title: As Long As You Love Me - Acoustic Version, score: 0.3, tags: [pop, black metal, rnb, hip hop]}
+      - {id: 5NU40QTlXrDUJzDBdv79bg, artist: Justin Bieber, title: Deserve You, score: 0.3, tags: [pop, black metal, rnb, hip hop]}
+      - {id: 0nJW01T7XtvILxQgC5J7Wh, artist: Bruno Mars, title: When I Was Your Man, score: 0.287, tags: [pop, piano, american]}
+      - {id: 1ZMiCix7XSAbfAJlEZWMCp, artist: Harry Styles, title: Falling, score: 0.282, tags: [pop, rock, alternative, soul]}
+      - {id: 4QixfAsDsesM3JfuiLQA02, artist: lityway, title: Schalt ab, score: 0.262, tags: [melancholic, intimate, late night, longing, emotional, safe, nostalgic, reassurance]}
+      - {id: 0e8nrvls4Qqv5Rfa2UhqmO, artist: Lil Nas X, title: THATS WHAT I WANT, score: 0.258, tags: [pop, hip hop, pop rock, rap, '2021']}
+      - {id: 6UnOxNp0jZfFXyKcAtJwUj, artist: Stellar, title: Masquerade, score: 0.249, tags: [k pop, pop, korean, kpop, lonely, mask, inner turmoil, self reflection, emotional struggle, isolation, hidden pain, duality]}
+      - {id: 0u2P5u6lvoDfwTYjAADbn4, artist: 'Billie Eilish, Khalid', title: lovely (with Khalid), score: 0.233, tags: [pop, 13 reasons why, indie, alternative, chamber pop]}
+      - {id: 3W1FAAdNDVdyJxJwV8Lps2, artist: Matt Hansen, title: WHERE YOU BELONG, score: 0.231, tags: [indie, acoustic, pop, usa, california, heartbreak, emotional, past, pain, forgiveness, personal struggle, memories, regret]}
+      - {id: 1odExI7RdWc4BT515LTAwj, artist: David Kushner, title: Daylight, score: 0.228, tags: [my top songs, pop, singer songwriter, american]}
+      - {id: 5hnGrTBaEsdukpDF6aZg8a, artist: Dean Lewis, title: How Do I Say Goodbye, score: 0.221, tags: [indie, australian, pop, singer songwriter, heartbreaking, emotional, goodbye, family, sorrow, memories, farewell, loss]}
+      - {id: 7zBg6qxuNUz0mBdr85l6ng, artist: Chelsea Cutler, title: Your Bones, score: 0.22, tags: [pop, indie pop, deezer]}
+      - {id: 648neYyz7wziy2RWuXeaiu, artist: 'Julien Bam, selfiesandra, CrispyRob', title: Gib her!, score: 0.158, tags: [pop, rap, germany, youtube]}
+      - {id: 15og0pCEcTFWEXOFKdcJlU, artist: 'Ellie Goulding, Juice WRLD', title: Hate Me, score: 0.143, tags: [melodic rap, emo rap, pop, rap, trap]}
+      - {id: 4zcVQvCRJRafP6JtLGyy7R, artist: jxdn, title: Pray, score: 0.133, tags: [pop punk, emo rap, emo, rock, spiritual, prayerful, emotional, late night, personal, reflective, inner peace, hope]}
+      - {id: 3JvKfv6T31zO0ini8iNItO, artist: Tom Odell, title: Another Love, score: 0.129, tags: [indie, singer songwriter, british, pop]}
+      - {id: 3an1JVi8OsE0aG6dMS4Pes, artist: AYLIVA, title: Hässlich, score: 0.123, tags: [german pop, german, pop, deutschland, female singer]}
+      - {id: 5WPbkilyXspX1yiKAiR1oO, artist: Presence, title: We Did Not Make Sense, score: 0.113, tags: [rapcore, alternative, rock, hard rock, introspective, mysterious, late night, emotional, thoughtful, existential, contemplative, dark]}
+      - {id: 2Iyfw8YfKruAagJwGc4G07, artist: Tom Rosenthal, title: It's Ok, score: 0.104, tags: [folk, indie, singer songwriter, british]}
+      - {id: 0HRshWRNAwQBROvxXqG3i9, artist: Birdy, title: Skinny Love, score: 0.102, tags: [folk, indie, british, singer songwriter]}
+      - {id: 2QjOHCTQ1Jl3zawyYOpxh6, artist: The Neighbourhood, title: Sweater Weather, score: 0.097, tags: [indie, alternative, chill, summer]}
+      - {id: 0NlGoUyOJSuSHmngoibVAs, artist: Kodaline, title: All I Want, score: 0.087, tags: [indie, sad, heartbreakingly beautiful]}
+      - {id: 1Xi84slp6FryDSCbzq4UCD, artist: Duncan Laurence, title: Arcade, score: 0.085, tags: [eurovision, pop, eurovision 2019, netherlands]}
+      - {id: 0vber253Le8WWt7gKorVe9, artist: Ed Sheeran, title: End Of Youth, score: 0.059, tags: [soft pop, acoustic, british, singer songwriter, pop]}
+      - {id: 0qvzXomUDJVaUboy2wMfiS, artist: Niall Horan, title: This Town, score: 0.049, tags: [folk, love at first listen, pop, 2010s]}
+      - {id: 26vtFc2QpDI4yZ69B3qC1i, artist: MICO, title: cut my hair, score: 0.041, tags: [metalcore, black metal, grindcore, sludge, colombia]}
+      - {id: 5CgkbROq94tTSnXnrfvtGH, artist: ONE OK ROCK, title: Let Me Let You Go, score: 0.028, tags: [j rock, j pop, japanese, rock, jrock]}
+      - {id: 6jDpNY9UT7L4ZruWx78tAQ, artist: ONE OK ROCK, title: Last Dance, score: 0.028, tags: [j rock, j pop, japanese, rock, jrock]}
+      - {id: 50x1Ic8CaXkYNvjmxe3WXy, artist: New West, title: Those Eyes, score: 0.027, tags: [my top songs, knoa owns this song]}
+      - {id: 1Fid2jjqsHViMX6xNH70hE, artist: Seafret, title: Atlantis, score: 0.024, tags: [rock, metal, indie rock, punk, metalcore]}
+      - {id: 55BzO4b2ZDxFok37ZOafWm, artist: wavvyboi, title: verlorene tage, score: 0.013, tags: [liechtenstein]}
+      - {id: 0PGzrYeC26qM7q4VeCXnno, artist: LOST, title: Down bist, score: 0.004, tags: [crust, dubstep, post hardcore, punk, hardcore]}
+  - name: Mix 2 · german hip hop, german indie, ge
+    description: german hip hop, german indie, german indie pop
+    spotify_id:
+    tracks:
+      - {id: 4ni3d9vRRYSlXTYqas7ndg, artist: 'DONDON, Rrotzer', title: Letzter Abend, score: 0.539, tags: [german hip hop, german indie, german indie pop, heartbreak, loneliness, regret, emotional, longing, conflict, despair, melancholy]}
+      - {id: 1ItfbPQ3zaEBWiGqtayWMJ, artist: 'DONDON, Rrotzer', title: Untouchable, score: 0.539, tags: [german hip hop, german indie, german indie pop]}
+      - {id: 3ZRJLZNkEx7YR9DVuIBYsv, artist: 'DONDON, Rrotzer', title: Vergessen was du bist, score: 0.522, tags: [german hip hop, german indie, german indie pop]}
+      - {id: 31c9D9Lg55BkYJc30zjr91, artist: 'DONDON, Edo Saiya', title: Verschwendete Zeit, score: 0.514, tags: [german hip hop, german indie]}
+      - {id: 151Mx1Z8FRAH8UBdZRLO4E, artist: 'Xam651, DONDON', title: Vertrauen, score: 0.498, tags: [german hip hop, german indie]}
+      - {id: 1ErKU4F8kDCawUp2IC5YDW, artist: DONDON, title: Echt, score: 0.498, tags: [german hip hop, german indie]}
+      - {id: 00OeYqVhOcqLIV7aQv8vIw, artist: 'DONDON, Rrotzer', title: Complicated, score: 0.456, tags: [german hip hop, german indie, german indie pop]}
+      - {id: 5MI6NwQ3StIcnsEvmfBCoT, artist: SkinnyJewlz, title: Wenn du da bist, score: 0.423, tags: [german hip hop]}
+      - {id: 6CX6yDrSFidhuOdHxOjdnW, artist: beastboy, title: (Party) CRASHER, score: 0.423, tags: [german hip hop]}
+      - {id: 1yajs7ThNzahrTVl8sd3RF, artist: nullsechsroy, title: Boys Don't Cry, score: 0.422, tags: [german hip hop, melancholic, resilient, late night, heartbreak, loneliness, self-reflection, emotional struggle, strong will]}
+      - {id: 2FbTZrdW0KGqH7TOdZRHiP, artist: '01099, Gustav, Zachi', title: Küssen, score: 0.418, tags: [german indie, german indie pop, german hip hop, german pop, rap]}
+      - {id: 1W1N3usYjgI3XGQA0iX9Vq, artist: 'Miksu / Macloud, t-low', title: Sehnsucht, score: 0.413, tags: [german hip hop, german indie, german indie pop, german, rap]}
+      - {id: 03egvWyPVBRkKLVIrJbkyR, artist: beastboy, title: SOUL EATER, score: 0.407, tags: [german hip hop, aggressive, confident, musical, showmanship, intimidating, powerful, unapologetic, epic]}
+      - {id: 0bk0HD6PubZKppbtvQz2H8, artist: beastboy, title: WEREGARURUMON, score: 0.407, tags: [german hip hop]}
+      - {id: 2jP9jK0CCL1Y77Zjew883M, artist: beastboy, title: Go Godzilla On Ya Frikkn City, score: 0.407, tags: [german hip hop]}
+      - {id: 66n8tQ7bFeNRrDXG5sGS7x, artist: beastboy, title: GUT<BESSER<ICH, score: 0.407, tags: [german hip hop]}
+      - {id: 6YCE907qzMVleP2WOH1gmq, artist: beastboy, title: 1000x COOLER, score: 0.407, tags: [german hip hop]}
+      - {id: 2hFOXN8Eq2gXIGGMIdHdWJ, artist: 'Ski Aggu, Endzone, Ericson', title: Party Sahne, score: 0.405, tags: [german indie, german hip hop, german indie pop, german, rap]}
+      - {id: 0fq2RzyyUoqELsONRF8ZzP, artist: 'Ski Aggu, SIRA', title: mietfrei, score: 0.391, tags: [german indie, german hip hop, german indie pop, german, rap]}
+      - {id: 3mXLCPmEwNPOll1BZedEA9, artist: 'Ski Aggu, $OHO BANI', title: Theater★, score: 0.391, tags: [german indie, german hip hop, german indie pop, german, rap]}
+      - {id: 0r1kH7SIkkPP9W7mUknObF, artist: CRO, title: Easy, score: 0.323, tags: [german pop, german hip hop, german indie, german indie pop, rap]}
+      - {id: 5CYEAAGzQMT5Bn6RDHmk80, artist: GReeeN, title: Ab & An, score: 0.312, tags: [german indie, german hip hop, german indie pop, j pop, japanese]}
+      - {id: 1m9hyvh3sfakGAWuRPoPMN, artist: 'DONDON, Yungmon', title: Problemboy, score: 0.303, tags: [german hip hop, german indie, cloud rap]}
+      - {id: 4RVNGbED8l74zLn5m7Z663, artist: 'nasskalt., JBS, MilleniumKid', title: Gedanken kreisen überm Bett, score: 0.262, tags: [german indie, german indie pop, neue deutsche welle, melancholic, intimate, emotional, contemplative, heartbreak, late night, longing, tender]}
+      - {id: 6Axdu52baKjJ6QwSw2lP1g, artist: 'Rrotzer, Timor', title: Should I stay or should i die, score: 0.26, tags: [german indie, german indie pop, german hip hop, german, hip hop]}
+      - {id: 42Ztw2ZtZR3mtWjXpg0R5I, artist: 'Yung Yury, Damn Yury', title: TABU., score: 0.254, tags: [german hip hop, rap, techno, german, instagram]}
+      - {id: 5kdAL3H0vfAeHBvTwXskGm, artist: 'Yung Yury, Damn Yury', title: RITALIN, score: 0.254, tags: [german hip hop, rap, techno, german, instagram]}
+      - {id: 7MCS8omROXkciIVOzS9YcQ, artist: 'Yung Yury, Damn Yury, BRUNLY', title: Hin und her, score: 0.254, tags: [german hip hop, rap, techno, german, instagram]}
+      - {id: 1NifMX1JqCz9caJowG8dxq, artist: '$OHO BANI, Herbert Grönemeyer, Ericson', title: 'ZEIT, DASS SICH WAS DREHT', score: 0.248, tags: [german indie, german hip hop, german indie pop, neue deutsche welle, german pop]}
+      - {id: 1bqXPZxBIqmbTP2ptOjAph, artist: 'midnide, loufre, REEZA', title: I Hope U Feel Like Shit, score: 0.226, tags: [german indie]}
+      - {id: 1ct7Hx3FQMfym8cHIk4hrd, artist: 'CIVO, Maxe', title: Keine Homies, score: 0.225, tags: [german hip hop, german pop, german]}
+      - {id: 1dy0JB5g1AW1W30zbPknZZ, artist: CÉLINE, title: Tränen aus Kajal, score: 0.223, tags: [german hip hop, german pop, electronica, trip hop, celine]}
+      - {id: 2XU6NpIYwo9y2EwxhmM8Gk, artist: Rrotzer, title: Neben Dir, score: 0.214, tags: [german indie, german indie pop, german, hip hop, deutsch, heartbreak, emotional, loneliness, memories, regret, conflict, personal struggle, melancholic]}
+      - {id: 6fstl0XJzViaPJgpLVcEHG, artist: 'beastboy, Mary Man, navy', title: Insomnia, score: 0.189, tags: [german hip hop, cloud rap, space music, german indie pop, insomnia, loneliness, anxiety, late night, self reflection, despair, restless, vulnerability]}
+      - {id: 2YzIaX4bwBcExzSrqwXJ4L, artist: 'zoku, NAIR', title: song für dich <3, score: 0.125, tags: [german indie, trance, psytrance, goa trance, psychedelic trance]}
+      - {id: 2Pyfpd75r3dC3nDgVA4fnX, artist: 'NOISETIME, Glasperlenspiel, NIKSTER, STEVIO', title: ECHT - Techno Mix, score: 0.064, tags: [hypertechno, german pop, techno, slap house]}
+      - {id: 0RYE1h1i5s9iXwaAjcf5VY, artist: 'R3HAB, HRVY', title: Be Okay, score: 0.009, tags: [slap house, edm, house, dance, electronic]}
+      - {id: 54KFQB6N4pn926IUUYZGzK, artist: 'The Cinematic Orchestra, Patrick Watson', title: To Build A Home, score: 0.004, tags: [downtempo, nu jazz, jazz, electronic, chillout]}
+  - name: Mix 3 · rap, german, cloud rap
+    description: rap, german, cloud rap
+    spotify_id:
+    tracks:
+      - {id: 0ZASJ6vWdrxcQgm0w16mWp, artist: Yungmon, title: Sonic Boom, score: 0.689, tags: [cloud rap, german, rap, deutsch, hip hop]}
+      - {id: 33T7yKrbYiXk0erHOPTmQB, artist: Yungmon, title: Hör weg beim nächsten Satz, score: 0.685, tags: [cloud rap, german, rap, deutsch, hip hop]}
+      - {id: 08p6O2CATs7HaOw3LuN6i3, artist: 'Yungmon, LEX', title: Breakdown, score: 0.678, tags: [cloud rap, german, rap, deutsch, hip hop]}
+      - {id: 0mKPAa0c09svWNFkoijLFe, artist: Yungmon, title: Uber, score: 0.678, tags: [cloud rap, german, rap, deutsch, hip hop]}
+      - {id: 29qYPbuI7dXsFBFx8GRv29, artist: Yungmon, title: Tired (Anxiety), score: 0.648, tags: [cloud rap, german, rap, deutsch, hip hop, anxious, depressed, tired, stress, loneliness, self doubt, emotional pain, mental health]}
+      - {id: 54nXosPlPn8GPXysQlCiMI, artist: Yungmon, title: Fehler meines Lebens, score: 0.647, tags: [cloud rap, german, rap, deutsch, hip hop]}
+      - {id: 6S1PTPsFLb1slNd9jJVCfG, artist: Yungmon, title: Falle, score: 0.627, tags: [cloud rap, german, rap, deutsch, hip hop]}
+      - {id: 5Ly5Hjdo9Pv4VarjD5YGaL, artist: Yungmon, title: Rauch, score: 0.623, tags: [cloud rap, german, rap, deutsch, hip hop]}
+      - {id: 1SYmNVETCLzxcTyI2yy763, artist: Yungmon, title: Tinte, score: 0.594, tags: [cloud rap, german, rap, deutsch, hip hop]}
+      - {id: 74Wu3OgrQs5PmXkgcjvQWQ, artist: 'Yungmon, Laer Xirtam', title: Demon Girls, score: 0.592, tags: [cloud rap, german indie pop, german, rap, deutsch]}
+      - {id: 7fmfD3eWJ6GRDsuLP6VWhu, artist: 'Yungmon, Lyran Dasz', title: Replay, score: 0.592, tags: [cloud rap, german indie pop, german, rap, deutsch]}
+      - {id: 2oxXeOZor0pqUszu7tM0N7, artist: 'Yungmon, Lyran Dasz', title: Crystals, score: 0.592, tags: [cloud rap, german indie pop, german, rap, deutsch]}
+      - {id: 3itD9ZBdWwf5lUI0A8LbnX, artist: 'Yungmon, Lyran Dasz', title: Unter dem Eis, score: 0.592, tags: [cloud rap, german indie pop, german, rap, deutsch]}
+      - {id: 4tNqqUMDjjo4UYkeCT4TXg, artist: Yungmon, title: Stresskonzert, score: 0.546, tags: [cloud rap, german, rap, deutsch, hip hop]}
+      - {id: 3t8kj9fF6jWk8dIfaoOho9, artist: Yungmon, title: Adrenalin, score: 0.544, tags: [cloud rap, german, rap, deutsch, hip hop]}
+      - {id: 2O8c1DmvhflC8rTsdGLHZZ, artist: Yungmon, title: Ich sterbe allein, score: 0.519, tags: [cloud rap, german, rap, deutsch, hip hop]}
+      - {id: 4CXzqBKSQQYgnw3IBSAKsY, artist: 'Lyran Dasz, Laer Xirtam, DISSIDIA', title: Flasche, score: 0.383, tags: [cloud rap, german indie pop, emo rap, rap, deutschrap]}
+      - {id: 03z6r4YyluyaWzbiFGkRjb, artist: 'Lyran Dasz, Laer Xirtam, DISSIDIA', title: In meiner Galerie, score: 0.383, tags: [cloud rap, german indie pop, emo rap, rap, deutschrap]}
+      - {id: 4s4dmXomWVn2LSLNXZimKo, artist: 'Lyran Dasz, Laer Xirtam', title: An dich geglaubt, score: 0.383, tags: [cloud rap, german indie pop, emo rap, rap, deutschrap]}
+      - {id: 7oilIsZSAfOpwnpIbg9k4Y, artist: 'Lyran Dasz, Laer Xirtam, wilson100k, DISSIDIA', title: Ghost, score: 0.355, tags: [cloud rap, german indie pop, hyperpop, emo rap, rap]}
+      - {id: 03ZbYUYFbIoj5r2ZuY2EXb, artist: TJ_babybrain, title: run_away, score: 0.347, tags: [german, rap, german rap, experimental]}
+      - {id: 0bU1rxmw2kashv2dY5odGc, artist: TJ_babybrain, title: low_battery, score: 0.347, tags: [german, rap, german rap, experimental]}
+      - {id: 1Nt5EEvKdysFCEmcPiTNOL, artist: TJ_babybrain, title: als_ich_allein_am_gelaender_stand, score: 0.347, tags: [german, rap, german rap, experimental]}
+      - {id: 3WUMTj4MBCXD8yBEmNiGyt, artist: TJ_babybrain, title: lonewolfs, score: 0.347, tags: [german, rap, german rap, experimental]}
+      - {id: 54vDto4AtwUbwHyWmT9nyR, artist: TJ_babybrain, title: braindead, score: 0.347, tags: [german, rap, german rap, experimental]}
+      - {id: 1VILy4Cw95Pnm5gilPOngE, artist: 'Lyran Dasz, absent, Yungmon', title: Misch Masch, score: 0.339, tags: [cloud rap, german indie pop, german hip hop, emo rap, rap]}
+      - {id: 40ouJ47aehHbdhGWBPSndX, artist: 'TJ_babybrain, fliggsy', title: one_&_only, score: 0.303, tags: [space music, german, rap, german rap, experimental]}
+      - {id: 3P8PIQfHKwGERQ4dTBkED2, artist: DAT ADAM, title: Sanageyama, score: 0.251, tags: [cloud rap, german hip hop, all, german, rap]}
+      - {id: 77CLIm215LHRuySO3k62AC, artist: 'mokuba, navy, Lando, Yungmon', title: University Blue, score: 0.22, tags: [space music, cloud rap, german indie pop]}
+      - {id: 4TVTKtOqCfx9MIckLwSfca, artist: Replay Okay, title: Hör mal mein Herz <3…, score: 0.173, tags: [german, germany, melancholic, heartbreak, longing, emotional, soulful, late night, unrequited love, vulnerable]}
+      - {id: 3z0XA6usBDO0hVNoRpIFPg, artist: Rrotzer, title: Break my heart, score: 0.158, tags: [german indie, german indie pop, german, hip hop, deutsch]}
+      - {id: 2fBw3h8cQDFiLA7i6cSinP, artist: 'wavvyboi, John on a Mission', title: done mit dir, score: 0.153, tags: [space music, cloud rap, liechtenstein, done with you, heartbreak, fading relationship, emotional exhaustion, breakup, confession, late night, resignation]}
+      - {id: 3bRc480nMXgbTTOCQj5suW, artist: 'navy, Yungmon', title: Happy Meal, score: 0.144, tags: [cloud rap, space music, german indie pop, soul, reggae]}
+      - {id: 6aoadZIaPyAvIpfdkmonBX, artist: Replay Okay, title: Du hast mich nie geliebt </3…, score: 0.132, tags: [german, germany]}
+  - name: Mix 4 · rap, hip hop, trap
+    description: rap, hip hop, trap
+    spotify_id:
+    tracks:
+      - {id: 0AYytjRaogv9GCIShuHls8, artist: LEX, title: KREIS, score: 0.683, tags: [rap, hip hop, japanese]}
+      - {id: 75ZvA4QfFiZvzhj2xkaWAh, artist: Post Malone, title: I Fall Apart, score: 0.667, tags: [rap, hip hop, 2010s]}
+      - {id: 0c34ovpXiMWWUbKX0IavIH, artist: 'The Kid LAROI, mgk', title: 'F*CK YOU, GOODBYE (feat. Machine Gun Kelly)', score: 0.635, tags: [hip hop, rap, emo rap, australian, pop]}
+      - {id: 21W5Mtndn6y8yjBZKHhGa9, artist: Chri$tian Gate$, title: I Need You, score: 0.517, tags: [rap, usa, trap, hip hop, longing, emotional, yearning, intimate, confessional, vulnerable, nostalgic, touching]}
+      - {id: 6MxMqCgqmekcr0VwSU7AVH, artist: NF, title: Time, score: 0.516, tags: [hip hop, christian hip hop, rap, christian, emotional, redemption, struggle, time, patience, personal growth, confession, hope]}
+      - {id: 07FkzikE6FuHIa8Ma7zJGc, artist: NF, title: Lie, score: 0.489, tags: [hip hop, christian hip hop, rap, christian]}
+      - {id: 0rc9XLNs7KZXu2ASA3LbL8, artist: NF, title: MISTAKE, score: 0.489, tags: [hip hop, christian hip hop, rap, christian]}
+      - {id: 1l0wPhFZP1kWkZNQrrYrGy, artist: NF, title: RUNNING, score: 0.489, tags: [hip hop, christian hip hop, rap, christian]}
+      - {id: 2LCGFBu1ej6zt4r1VGPjny, artist: 'NF, Julia Michaels', title: GONE, score: 0.489, tags: [hip hop, christian hip hop, rap, christian]}
+      - {id: 3vBTFVEcGhmH13Y0Lj9UTN, artist: NF, title: BULLET, score: 0.489, tags: [hip hop, christian hip hop, rap, christian]}
+      - {id: 3ZEno9fORwMA1HPecdLi0R, artist: NF, title: HAPPY, score: 0.489, tags: [hip hop, christian hip hop, rap, christian]}
+      - {id: 3i5qVV8azKqGFK4Gzdt5YS, artist: NF, title: If You Want Love, score: 0.489, tags: [hip hop, christian hip hop, rap, christian]}
+      - {id: 56TOfxnRzSRbFRw8J6C4IT, artist: 'Josh A, iamjakehill', title: Suicidal Thoughts, score: 0.483, tags: [emo rap, rap, hip hop]}
+      - {id: 5fX1B90cPSFyyjORcHW8aC, artist: Chri$tian Gate$, title: Lost, score: 0.475, tags: [rap, usa, trap, hip hop]}
+      - {id: 0RxJW4CqKIM1v0DN3z32zG, artist: Chri$tian Gate$, title: Take Me Back, score: 0.475, tags: [rap, usa, trap, hip hop]}
+      - {id: 1BPBwKueIEMnUcbbs2te7B, artist: Chri$tian Gate$, title: NUMB, score: 0.475, tags: [rap, usa, trap, hip hop]}
+      - {id: 34AV8kRHUmM06sdnmDrPRe, artist: Chri$tian Gate$, title: Why Do I Hear Breathing?, score: 0.475, tags: [rap, usa, trap, hip hop]}
+      - {id: 3sPH4TSnFN98QS7C5KF14n, artist: Chri$tian Gate$, title: Never with You Again, score: 0.475, tags: [rap, usa, trap, hip hop]}
+      - {id: 4iwjEJYExvmBM5w75RTuLv, artist: Chri$tian Gate$, title: Dangerous State of Mind, score: 0.475, tags: [rap, usa, trap, hip hop]}
+      - {id: 63hcZI0I4dinNwIevUADXm, artist: Chri$tian Gate$, title: Love No One, score: 0.475, tags: [rap, usa, trap, hip hop]}
+      - {id: 6krUUNp4e2mIOzNzRIexdY, artist: Chri$tian Gate$, title: I Won't Beg for You, score: 0.475, tags: [rap, usa, trap, hip hop]}
+      - {id: 7AFASza1mXqntmGtbxXprO, artist: XXXTENTACION, title: changes, score: 0.397, tags: [emo rap, hip hop, rap, emo, heartbreak, emotional, conflicted, painful, change, relationship struggles, vulnerable, raw]}
+      - {id: 5i35J15e8bxmM4pxfX9rAk, artist: Sierra Kidd, title: Dein, score: 0.221, tags: [german hip hop, german, rap, deutschrap, hip hop]}
+      - {id: 285pBltuF7vW8TeWk8hdRR, artist: Juice WRLD, title: Lucid Dreams, score: 0.203, tags: [emo rap, hip hop, melodic rap, trap, rap, heartbreak, emotional, lucid dreams, pain, addiction, memories, regret, struggle]}
+unassigned:
+  - {id: 1hjWy02duPxRh1sUOeixBm, artist: lityway, title: NUR DICH/SONST NICHTS, tags: []}
+  - {id: 29gXNLssXlui4rSOMrqwVv, artist: 'Elijah Kyle, Beautiful Beats, Yung Crusha', title: wanting you to change, tags: []}
+  - {id: 5vjLSffimiIP26QG5WcN2K, artist: Chord Overstreet, title: Hold On, tags: [glee, soundtrack, glee cast]}
+  - {id: 251oXBgv1BbcarwVYWG5ie, artist: Yinmon, title: Bladerunner, tags: []}
+  - {id: 7AfMRI58BQUDw1Xc6r5gd9, artist: KEIICHI, title: welcome to white space, tags: []}

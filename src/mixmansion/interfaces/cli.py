@@ -48,6 +48,11 @@ def _version(value: bool) -> None:
         raise typer.Exit()
 
 
+def _interactive() -> bool:
+    """Prompt only when a user is actually sitting in front of the terminal."""
+    return sys.stdin.isatty()
+
+
 def _is_list(annotation: Any) -> bool:
     return get_origin(annotation) is list or any(
         get_origin(a) is list for a in get_args(annotation)
@@ -154,9 +159,14 @@ def build_cli() -> typer.Typer:
         ] = None,
         output: Annotated[Path | None, typer.Option("-o", "--output", help="Plan file.")] = None,
     ) -> None:
-        """Group the pool into playlists and write the plan for you to review."""
+        """Group the pool into playlists and write the plan for you to review.
+
+        Without --by, you pick the categories and their weights interactively.
+        """
         app = state.app
-        weights = {k: float(v) for k, v in _parse_pairs(by or [], "--by")} or app.settings.weights
+        weights = {k: float(v) for k, v in _parse_pairs(by or [], "--by")}
+        if not weights:
+            weights = _ask_weights(app) if _interactive() else app.settings.weights
         opts: dict[str, dict[str, str]] = {}
         for key, value in _parse_pairs(opt or [], "--opt"):
             adapter, sep, fld = key.partition(".")
@@ -208,6 +218,49 @@ def build_cli() -> typer.Typer:
     return app
 
 
+def _ask_weights(app: MixMansion) -> dict[str, float]:
+    """Let the user pick the categorizers and weigh them; equal weights by default."""
+    infos = app.list_adapters("categorizer")
+    picked = questionary.checkbox(
+        "Which categories should shape the playlists?",
+        choices=[
+            questionary.Choice(
+                f"{i.name} — {i.description}" if i.description else i.name, i.name, checked=True
+            )
+            for i in infos
+        ],
+    ).ask()
+    if picked is None:
+        raise typer.Abort()
+    if not picked:
+        raise MixMansionError("pick at least one category")
+    weights = dict.fromkeys(picked, 1.0)
+    if len(picked) > 1:
+        typer.echo("Weigh them against each other. Enter alone keeps a weight of 1.")
+        for name in picked:
+            answer = questionary.text(
+                f"  {name}",
+                instruction="[1]",
+                validate=lambda v: _positive(v) or "enter a number greater than 0",
+            ).ask()
+            if answer is None:
+                raise typer.Abort()
+            weights[name] = float(answer) if answer.strip() else 1.0
+    total = sum(weights.values())
+    typer.echo(" · ".join(f"{n} {w / total:.0%}" for n, w in weights.items()))
+    return weights
+
+
+def _positive(value: str) -> bool:
+    """Empty means "keep the default weight of 1"."""
+    if not value.strip():
+        return True
+    try:
+        return float(value) > 0
+    except ValueError:
+        return False
+
+
 def _retriever_command(name: str, cls: type):
     """A command whose options are generated from the retriever's Params fields.
 
@@ -243,7 +296,7 @@ def _retriever_command(name: str, cls: type):
         for fld, info in fields.items():
             if fld in values or not (info.is_required() or info.default is None):
                 continue
-            if not sys.stdin.isatty():
+            if not _interactive():
                 continue
             choices = app.adapter_choices("retriever", name, fld, values)
             if not choices:

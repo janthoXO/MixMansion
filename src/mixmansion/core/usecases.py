@@ -1,5 +1,6 @@
 """Use cases: the primary port. Interaction surfaces (CLI, later REST) call only `MixMansion`."""
 
+import inspect
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -21,6 +22,7 @@ class MixMansionError(Exception):
 
 class AdapterInfo(BaseModel):
     name: str
+    description: str = ""  # first line of the adapter's docstring
     params_schema: dict
 
 
@@ -85,7 +87,11 @@ class MixMansion:
 
     def list_adapters(self, port: str) -> list[AdapterInfo]:
         return [
-            AdapterInfo(name=name, params_schema=cls.Params.model_json_schema())
+            AdapterInfo(
+                name=name,
+                description=(inspect.getdoc(cls) or "").split("\n")[0],
+                params_schema=cls.Params.model_json_schema(),
+            )
             for name, cls in self._port(port).items()
         ]
 
