@@ -7,6 +7,7 @@ from typing import Any
 from mixmansion.categorizers.port import Categorizer
 from mixmansion.core.usecases import MixMansion
 from mixmansion.groupers.port import Grouper
+from mixmansion.namers.llm import LLMNamer
 from mixmansion.namers.port import PlaylistNamer
 from mixmansion.plan_stores.port import PlanStore
 from mixmansion.plan_stores.yaml_file import YamlFilePlanStore
@@ -27,7 +28,7 @@ RETRIEVERS: dict[str, type[SongRetriever]] = {
 }
 CATEGORIZERS: dict[str, type[Categorizer]] = {}
 GROUPERS: dict[str, type[Grouper]] = {}
-NAMERS: dict[str, type[PlaylistNamer]] = {}
+NAMERS: dict[str, type[PlaylistNamer]] = {"llm": LLMNamer}
 WRITERS: dict[str, type[PlaylistWriter]] = {"spotify": SpotifyWriter}
 POOL_STORES: dict[str, type[PoolStore]] = {"file_kv": FileKVPoolStore}
 PLAN_STORES: dict[str, type[PlanStore]] = {"yaml_file": YamlFilePlanStore}

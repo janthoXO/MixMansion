@@ -155,6 +155,8 @@ The LLM (mood tags, playlist names) and the embeddings model (mood similarity) a
 
 Answers are cached in `.mixmansion/llm_cache.sqlite`, so running `plan` again on the same songs costs nothing.
 
+The `llm` namer takes its own options, e.g. `--opt llm.language=de` or `--opt llm.style="lowercase, no emojis"`; see `.env.example` for `MIXMANSION_NAMER_LLM_*` defaults.
+
 See `.env.example` for the full, current list and defaults.
 
 ## FAQ
