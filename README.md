@@ -153,6 +153,8 @@ The LLM (mood tags, playlist names) and the embeddings model (mood similarity) a
 - **LM Studio, vLLM or another OpenAI-compatible server:** `LLM_PROVIDER=openai_compatible` and `LLM_URL=<server>/v1`.
 - **Cloud:** e.g. `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-haiku-4-5`, `LLM_API_KEY=...`; embeddings e.g. `EMBEDDINGS_PROVIDER=openai`, `EMBEDDINGS_MODEL=text-embedding-3-small`, `EMBEDDINGS_API_KEY=...`.
 
+**Mood tagging** looks up lyrics on [LRCLIB](https://lrclib.net) (no key needed), then asks the LLM for mood and theme tags in batches of 10 songs. Expect roughly 5–30 seconds per batch with a 14B model on a laptop GPU, so a 500-song pool takes a few minutes locally and well under a minute with a cloud model. Smaller local models work better with `--opt mood.batch_size=5`.
+
 Answers are cached in `.mixmansion/llm_cache.sqlite`, so running `plan` again on the same songs costs nothing.
 
 The `llm` namer takes its own options, e.g. `--opt llm.language=de` or `--opt llm.style="lowercase, no emojis"`; see `.env.example` for `MIXMANSION_NAMER_LLM_*` defaults.

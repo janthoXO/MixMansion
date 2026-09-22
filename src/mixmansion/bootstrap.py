@@ -4,6 +4,7 @@ import inspect
 from collections.abc import Callable
 from typing import Any
 
+from mixmansion.categorizers.mood import MoodCategorizer
 from mixmansion.categorizers.port import Categorizer
 from mixmansion.core.usecases import MixMansion
 from mixmansion.groupers.port import Grouper
@@ -26,7 +27,7 @@ RETRIEVERS: dict[str, type[SongRetriever]] = {
     "playlist": PlaylistRetriever,
     "search": SearchRetriever,
 }
-CATEGORIZERS: dict[str, type[Categorizer]] = {}
+CATEGORIZERS: dict[str, type[Categorizer]] = {"mood": MoodCategorizer}
 GROUPERS: dict[str, type[Grouper]] = {}
 NAMERS: dict[str, type[PlaylistNamer]] = {"llm": LLMNamer}
 WRITERS: dict[str, type[PlaylistWriter]] = {"spotify": SpotifyWriter}
