@@ -27,7 +27,7 @@ Prerequisites:
 
 - Python 3.12 or later and [uv](https://docs.astral.sh/uv/)
 - A Spotify developer app: create one at the [Spotify developer dashboard](https://developer.spotify.com/dashboard), set its redirect URI to `http://127.0.0.1:8888/callback`, and, since the app starts in development mode, add your own Spotify account as a user under the app's settings
-- A [Last.fm API key](https://www.last.fm/api/account/create) (used by the genre categorizer, once implemented)
+- A [Last.fm API key](https://www.last.fm/api/account/create) (used by the genre categorizer)
 - Either a local LLM (e.g. [Ollama](https://ollama.com/)) or an API key for a cloud LLM provider (used by the mood categorizer and the namer, once implemented)
 
 ### With uv
@@ -141,7 +141,7 @@ Settings are read from real environment variables, then a `.env` file, then defa
 | `MIXMANSION_WORKSPACE` | Local state directory (caches, pool, tokens); default `.mixmansion` |
 | `MIXMANSION_WEIGHTS` | Default categorizer weights, e.g. `{"genre": 0.5, "mood": 0.5}` |
 | `MIXMANSION_GROUPER`, `MIXMANSION_NAMER` | Which grouper/namer adapter to use by default |
-| `LASTFM_API_KEY` | Last.fm key for the genre categorizer *(added with the connector)* |
+| `LASTFM_API_KEY` | Last.fm key for the genre categorizer ([create one](https://www.last.fm/api/account/create)) |
 | `LLM_PROVIDER`, `LLM_MODEL`, `LLM_URL`, `LLM_API_KEY` | LLM used for naming and mood tagging (see below) |
 | `EMBEDDINGS_PROVIDER`, `EMBEDDINGS_MODEL` | Embedding model for mood similarity (see below) |
 
