@@ -1,0 +1,109 @@
+[importlinter]
+root_package = mixmansion
+
+[importlinter:contract:models]
+name = core.models imports nothing from the project
+type = forbidden
+source_modules = mixmansion.core.models
+forbidden_modules =
+    mixmansion.core.usecases
+    mixmansion.shared
+    mixmansion.retrievers
+    mixmansion.categorizers
+    mixmansion.groupers
+    mixmansion.namers
+    mixmansion.writers
+    mixmansion.pool_stores
+    mixmansion.plan_stores
+    mixmansion.interfaces
+    mixmansion.bootstrap
+
+[importlinter:contract:usecases]
+name = core.usecases imports only models, ports and shared.config
+type = forbidden
+source_modules = mixmansion.core.usecases
+forbidden_modules =
+    mixmansion.retrievers
+    mixmansion.categorizers
+    mixmansion.groupers
+    mixmansion.namers
+    mixmansion.writers
+    mixmansion.pool_stores
+    mixmansion.plan_stores
+    mixmansion.shared
+    mixmansion.interfaces
+    mixmansion.bootstrap
+ignore_imports =
+    mixmansion.core.usecases -> mixmansion.*.port
+    mixmansion.core.usecases -> mixmansion.shared.config
+unmatched_ignore_imports_alerting = none
+
+[importlinter:contract:ports]
+name = port.py imports only models and shared.config
+type = forbidden
+source_modules = mixmansion.*.port
+forbidden_modules =
+    mixmansion.core.usecases
+    mixmansion.shared
+    mixmansion.interfaces
+    mixmansion.bootstrap
+ignore_imports =
+    mixmansion.*.port -> mixmansion.shared.config
+
+[importlinter:contract:port-folders]
+name = port folders never import each other
+type = independence
+modules =
+    mixmansion.retrievers
+    mixmansion.categorizers
+    mixmansion.groupers
+    mixmansion.namers
+    mixmansion.writers
+    mixmansion.pool_stores
+    mixmansion.plan_stores
+
+[importlinter:contract:adapters]
+name = adapters never import use cases, interfaces or bootstrap
+type = forbidden
+source_modules =
+    mixmansion.retrievers
+    mixmansion.categorizers
+    mixmansion.groupers
+    mixmansion.namers
+    mixmansion.writers
+    mixmansion.pool_stores
+    mixmansion.plan_stores
+forbidden_modules =
+    mixmansion.core.usecases
+    mixmansion.interfaces
+    mixmansion.bootstrap
+
+[importlinter:contract:shared]
+name = shared never imports port folders, use cases, interfaces or bootstrap
+type = forbidden
+source_modules = mixmansion.shared
+forbidden_modules =
+    mixmansion.core.usecases
+    mixmansion.retrievers
+    mixmansion.categorizers
+    mixmansion.groupers
+    mixmansion.namers
+    mixmansion.writers
+    mixmansion.pool_stores
+    mixmansion.plan_stores
+    mixmansion.interfaces
+    mixmansion.bootstrap
+
+[importlinter:contract:bootstrap-only]
+name = only bootstrap imports concrete adapters
+type = forbidden
+source_modules = mixmansion.interfaces
+forbidden_modules =
+    mixmansion.retrievers
+    mixmansion.categorizers
+    mixmansion.groupers
+    mixmansion.namers
+    mixmansion.writers
+    mixmansion.pool_stores
+    mixmansion.plan_stores
+allow_indirect_imports = true
