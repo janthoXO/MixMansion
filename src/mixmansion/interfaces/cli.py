@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Any, get_args, get_origin
 
-import click
 import questionary
 import typer
 
@@ -274,11 +273,11 @@ app = build_cli()
 def main() -> None:
     """Console entry point: adapter errors become one line unless --debug."""
     try:
-        app(standalone_mode=False)
-    except click.Abort:
+        app(prog_name="mixmansion", standalone_mode=False)
+    except typer.Abort:
         typer.echo("Aborted.", err=True)
         sys.exit(1)
-    except click.ClickException as e:
+    except typer.TyperException as e:  # usage errors, e.g. a bad --opt
         e.show()
         sys.exit(e.exit_code)
     except Exception as e:  # noqa: BLE001 — network, auth and validation errors from adapters
