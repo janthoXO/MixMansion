@@ -20,6 +20,7 @@ classifiers = [
 ]
 dependencies = [
     "litellm==1.102.0",
+    "networkx>=3.5",
     "numpy>=2.1",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",

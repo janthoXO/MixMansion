@@ -8,6 +8,7 @@ from mixmansion.categorizers.genre import GenreCategorizer
 from mixmansion.categorizers.mood import MoodCategorizer
 from mixmansion.categorizers.port import Categorizer
 from mixmansion.core.usecases import MixMansion
+from mixmansion.groupers.louvain import LouvainGrouper
 from mixmansion.groupers.port import Grouper
 from mixmansion.namers.llm import LLMNamer
 from mixmansion.namers.port import PlaylistNamer
@@ -29,7 +30,7 @@ RETRIEVERS: dict[str, type[SongRetriever]] = {
     "search": SearchRetriever,
 }
 CATEGORIZERS: dict[str, type[Categorizer]] = {"mood": MoodCategorizer, "genre": GenreCategorizer}
-GROUPERS: dict[str, type[Grouper]] = {}
+GROUPERS: dict[str, type[Grouper]] = {"louvain": LouvainGrouper}
 NAMERS: dict[str, type[PlaylistNamer]] = {"llm": LLMNamer}
 WRITERS: dict[str, type[PlaylistWriter]] = {"spotify": SpotifyWriter}
 POOL_STORES: dict[str, type[PoolStore]] = {"file_kv": FileKVPoolStore}

@@ -10,7 +10,7 @@ MixMansion is not affiliated with or endorsed by Spotify.
 
 ## Status
 
-The core pipeline (models, use cases, plan lifecycle, CLI) is implemented and tested. The connectors that talk to the outside world — the Spotify client, the playlist and search retrievers, the genre and mood categorizers, the Louvain grouper, the LLM namer, the Spotify writer, and the pool/plan file stores — are planned but not implemented yet (see the [open issues](https://github.com/janthoXO/MixMansion/issues)). Until they land, `mixmansion --help` works, but `pool add`, `plan` and `apply` have no adapters registered to run against. This README documents the tool as it is meant to work once those connectors ship; sections that depend on a specific connector say so.
+The first round is complete: playlist and search retrievers, genre and mood categorizers, the Louvain grouper, the LLM namer, the Spotify writer, and file-based pool and plan stores. Next up are a genre retriever, a Postgres pool store and a REST API (see the [open issues](https://github.com/janthoXO/MixMansion/issues)).
 
 ## Features
 
@@ -28,7 +28,7 @@ Prerequisites:
 - Python 3.12 or later and [uv](https://docs.astral.sh/uv/)
 - A Spotify developer app: create one at the [Spotify developer dashboard](https://developer.spotify.com/dashboard), set its redirect URI to `http://127.0.0.1:8888/callback`, and, since the app starts in development mode, add your own Spotify account as a user under the app's settings
 - A [Last.fm API key](https://www.last.fm/api/account/create) (used by the genre categorizer)
-- Either a local LLM (e.g. [Ollama](https://ollama.com/)) or an API key for a cloud LLM provider (used by the mood categorizer and the namer, once implemented)
+- Either a local LLM (e.g. [Ollama](https://ollama.com/)) or an API key for a cloud LLM provider (used by the mood categorizer and the namer)
 
 ### With uv
 
@@ -52,7 +52,7 @@ Logging in to Spotify from inside the container comes with the Spotify connector
 
 ## Usage
 
-First run, once the connectors are implemented:
+A first run:
 
 ```bash
 uv run mixmansion pool add playlist          # picker: choose playlists interactively
@@ -167,10 +167,10 @@ See `.env.example` for the full, current list and defaults.
 No. It only creates or updates the playlists listed in a plan you've approved. Nothing else on your account is touched, and songs are never deleted from your library.
 
 **Can I run it fully locally?**
-Yes, once the LLM connector lands: point `LLM_PROVIDER`/`LLM_MODEL` at a local model server such as Ollama and no data goes to a cloud LLM. Spotify itself, of course, is always a cloud API.
+Yes: point `LLM_PROVIDER`/`LLM_MODEL` at a local model server such as Ollama and no data goes to a cloud LLM. Spotify, Last.fm and LRCLIB lookups still go over the internet.
 
 **What data does it send to Spotify, Last.fm or an LLM?**
-Spotify: playlist and track metadata via its Web API, plus the playlists MixMansion creates. Last.fm (planned): artist and track names, to fetch genre tags. An LLM provider (planned): song titles, artists, lyrics and tags, to generate mood labels and playlist names/descriptions.
+Spotify: playlist and track metadata via its Web API, plus the playlists MixMansion creates. Last.fm: artist and track names, to fetch genre tags. LRCLIB: artist, title, album and duration, to fetch lyrics. Your LLM provider: song titles, artists, lyrics and tags, to generate mood labels and playlist names/descriptions.
 
 **I'm getting a Spotify authorization error.**
 Check that `SPOTIFY_REDIRECT_URI` matches the redirect URI in your app's dashboard exactly, and that your Spotify account is added as a user under the app's settings (required while the app is in development mode).

@@ -179,16 +179,16 @@ One CLI run from `pool add` through `apply`; the plan is saved right after each 
 
 ## 4. Grouping explained
 
-The `louvain` grouper (`groupers/louvain.py`, [issue #12](https://github.com/janthoXO/MixMansion/issues/12), not yet implemented) combines the per-dimension `SimilarityGraph`s into playlists:
+The `louvain` grouper (`groupers/louvain.py`) combines the per-dimension `SimilarityGraph`s into playlists:
 
 1. **Fusion.** For a pair of songs, only the dimensions that have data for *both* songs (i.e. both are in that dimension's `covered` set) count toward the fused weight; each counted dimension's edge weight (0 if there's no edge) is averaged, weighted by the user's per-dimension weight. This means a song with no mood data (e.g. an instrumental with no lyrics) is grouped on genre alone instead of being penalized as dissimilar to everything.
 2. **Communities.** The fused graph is partitioned with `networkx.community.louvain_communities`, tuned by `resolution` (higher = more, smaller groups).
-3. **Merging small groups.** Communities smaller than `min_size` are repeatedly folded into the community they have the highest affinity with, until none are left undersized (or only one community remains).
+3. **Merging small groups.** Communities smaller than `min_size` are repeatedly folded into the community they share the highest mean edge weight with (an unconnected one goes to the largest), until none are left undersized (or only one community remains).
 4. **Soft assignment.** Each song's affinity to a community is the mean fused edge weight to that community's members. A song joins its best-fitting community, plus any other community whose affinity is within a factor of `tau` of the best (`A(s, c) >= (1 - tau) * A(s, c*)`), up to `max_memberships` playlists.
 5. **Score and order.** Each song's score in a group is its affinity to that group; groups list songs sorted by score, descending, so the plan's playlist order roughly reflects "most typical first."
 6. **Unassigned.** Songs with no edges at all in the fused graph land in `Grouping.unassigned` rather than being forced into a group.
 
-Tuning knobs (env prefix `MIXMANSION_GROUPER_LOUVAIN_`, once implemented):
+Tuning knobs (env prefix `MIXMANSION_GROUPER_LOUVAIN_`, or per run with `--opt louvain.<field>=<value>`):
 
 | Field | Default | Effect |
 |---|---|---|
@@ -197,6 +197,13 @@ Tuning knobs (env prefix `MIXMANSION_GROUPER_LOUVAIN_`, once implemented):
 | `tau` | `0.05` | How close a second-best fit has to be for a song to also join that group |
 | `max_memberships` | `2` | Maximum number of playlists a single song can appear in |
 | `seed` | `42` | Makes runs repeatable for the same input |
+
+How to tune:
+
+- **Too few, huge playlists:** raise `resolution` (e.g. 1.5–2.0) or lower `min_size`.
+- **Many tiny playlists:** raise `min_size`, or lower `resolution` below 1.0.
+- **Too many songs in two playlists:** lower `tau` (0 means only exact ties) or set `max_memberships=1`.
+- **Nobody in two playlists:** raise `tau` (e.g. 0.1–0.2).
 
 ## 5. Configuration
 
@@ -328,5 +335,5 @@ CI has three workflows, each triggered only when relevant paths change:
   - When the quota is exceeded Spotify answers 429 with `reason: QUOTA_EXCEEDED`; spotipy retries with backoff. Quotas are shared by all of a developer's client IDs.
 
   Check the [changelog](https://developer.spotify.com/documentation/web-api/references/changes/july-2026) before relying on any endpoint, and never hard-code page sizes: follow `next`.
-- **Last.fm tag matching.** The genre categorizer (planned) matches Last.fm tags by artist and title text; this can miss for typos, alternate titles, or obscure tracks, resulting in a song with no genre tags for that source.
-- **LRCLIB lyrics coverage.** The mood categorizer (planned) uses LRCLIB for lyrics; not every song has lyrics available there. A song with no lyrics is "uncovered" for the lyrics-derived part of mood — it's grouped using whatever mood signal is available plus the other dimensions, not treated as dissimilar to everything (see [Grouping explained](#4-grouping-explained)).
+- **Last.fm tag matching.** The genre categorizer matches Last.fm tags by artist and title text; this can miss for typos, alternate titles, or obscure tracks, resulting in a song with no genre tags for that source.
+- **LRCLIB lyrics coverage.** The mood categorizer uses LRCLIB for lyrics; not every song has lyrics available there. A song with no lyrics is "uncovered" for the lyrics-derived part of mood — it's grouped using whatever mood signal is available plus the other dimensions, not treated as dissimilar to everything (see [Grouping explained](#4-grouping-explained)).
