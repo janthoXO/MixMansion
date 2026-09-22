@@ -14,12 +14,14 @@ from mixmansion.pool_stores.file_kv import FileKVPoolStore
 from mixmansion.pool_stores.port import PoolStore
 from mixmansion.retrievers.playlist import PlaylistRetriever
 from mixmansion.retrievers.port import SongRetriever
+from mixmansion.retrievers.search import SearchRetriever
 from mixmansion.shared.config import AppSettings, ServiceOverrides, load
 from mixmansion.shared.spotify import SpotifyService, SpotifySettings
 from mixmansion.writers.port import PlaylistWriter
 
 RETRIEVERS: dict[str, type[SongRetriever]] = {
     "playlist": PlaylistRetriever,
+    "search": SearchRetriever,
 }
 CATEGORIZERS: dict[str, type[Categorizer]] = {}
 GROUPERS: dict[str, type[Grouper]] = {}

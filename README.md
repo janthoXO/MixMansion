@@ -57,13 +57,15 @@ First run, once the connectors are implemented:
 ```bash
 uv run mixmansion pool add playlist          # picker: choose playlists interactively
 uv run mixmansion pool add playlist --playlist-ids <id>,https://open.spotify.com/playlist/<id>
+uv run mixmansion pool add search --query "rainy day jazz"   # picker: choose search hits
+uv run mixmansion pool add search --query "rainy day jazz" --track-ids <id>,<id>
 uv run mixmansion pool show                  # see what's in the pool
 uv run mixmansion plan -o plan.yaml          # group the pool and write a plan
 # edit plan.yaml, then set `approved: true`
 uv run mixmansion apply plan.yaml
 ```
 
-Only playlists you own or collaborate on can be read back (a Spotify restriction for development-mode apps), so the picker and `pool add playlist` only work with those.
+Only playlists you own or collaborate on can be read back (a Spotify restriction for development-mode apps), so the picker and `pool add playlist` only work with those. Spotify returns at most 10 search hits per request, so `pool add search` pages through results to reach `--limit` (default 20).
 
 ### Editing the plan
 

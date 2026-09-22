@@ -47,3 +47,37 @@ def playlist_tracks(sp: spotipy.Spotify, playlist_id: str) -> tuple[str, list[So
             '"%s": skipped %d items (local files, episodes or unavailable tracks)', name, skipped
         )
     return name, songs, skipped
+
+
+def search_tracks(sp: spotipy.Spotify, query: str, limit: int) -> list[Choice]:
+    """Search tracks for `query`, up to `limit` hits. Spotify caps `limit` per request (dev-mode
+    apps currently get at most 10), so this pages with `offset` until `limit` is reached."""
+    choices: list[Choice] = []
+    offset = 0
+    while offset < limit:
+        page_size = min(10, limit - offset)
+        page = sp.search(q=query, type="track", limit=page_size, offset=offset)["tracks"]
+        items = page.get("items") or []
+        for track in items:
+            song = to_song(track, "search")
+            if song is None:
+                continue
+            artists = ", ".join(song.artists)
+            year = f" ({song.release_year})" if song.release_year else ""
+            choices.append(
+                Choice(value=song.id, label=f"{artists} – {song.title} · {song.album}{year}")
+            )
+        offset += page_size
+        if len(items) < page_size or not page.get("next"):
+            break
+    return choices[:limit]
+
+
+def tracks(sp: spotipy.Spotify, ids: list[str], source: str) -> list[Song]:
+    """Fetch tracks one at a time (the batch `GET /tracks?ids=` endpoint was removed)."""
+    songs: list[Song] = []
+    for track_id in ids:
+        song = to_song(sp.track(track_id), source)
+        if song is not None:
+            songs.append(song)
+    return songs
