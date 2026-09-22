@@ -10,6 +10,7 @@ from fakes import (
     FakePoolStore,
     FakeRetriever,
     FakeWriter,
+    tid,
 )
 
 from mixmansion.core.models import Plan, Playlist, SongPool
@@ -31,11 +32,11 @@ def test_fake_categorizer():
     params = FakeCategorizer.Params()
     graph = categorizer.similarity(SONGS, params)
     assert graph.covered == {s.id for s in SONGS}
-    assert graph.labels["t1"] == ["even"]
-    assert graph.labels["t2"] == ["odd"]
+    assert graph.labels[tid(1)] == ["even"]
+    assert graph.labels[tid(2)] == ["odd"]
     assert all(a < b for a, b in graph.edges)
-    assert ("t1", "t3") in graph.edges  # both even-indexed
-    assert ("t1", "t2") not in graph.edges  # different clusters
+    assert (tid(1), tid(3)) in graph.edges  # both even-indexed
+    assert (tid(1), tid(2)) not in graph.edges  # different clusters
 
 
 def test_fake_grouper():

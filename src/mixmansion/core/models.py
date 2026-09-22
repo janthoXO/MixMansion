@@ -1,6 +1,21 @@
 """Domain models. Imports nothing from the project."""
 
-from pydantic import BaseModel
+import re
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
+
+_TRACK_ID = re.compile(
+    r"^(?:spotify:track:|https?://open\.spotify\.com/(?:intl-[\w-]+/)?track/)?([0-9A-Za-z]{22})(?:\?.*)?$"
+)
+
+
+def parse_track_id(value: str) -> str:
+    """Bare id, spotify:track: URI or open.spotify.com URL -> bare id."""
+    m = _TRACK_ID.match(value.strip())
+    if not m:
+        raise ValueError(f"not a Spotify track id, URI or URL: {value!r}")
+    return m.group(1)
 
 
 class Song(BaseModel):
@@ -68,12 +83,25 @@ class PlanTrack(BaseModel):
     score: float | None = None  # informational
     tags: list[str] = []  # informational
 
+    @field_validator("id")
+    @classmethod
+    def _normalize_id(cls, v: str) -> str:
+        return parse_track_id(v)
+
 
 class Playlist(BaseModel):
-    name: str
-    description: str = ""
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+    description: str = Field("", max_length=300)
     spotify_id: str | None = None  # set by apply
     tracks: list[PlanTrack]
+
+    @model_validator(mode="after")
+    def _no_duplicates(self):
+        seen: set[str] = set()
+        dupes = {t.id for t in self.tracks if t.id in seen or seen.add(t.id)}
+        if dupes:
+            raise ValueError(f"playlist {self.name!r} lists these tracks twice: {sorted(dupes)}")
+        return self
 
 
 class Plan(BaseModel):

@@ -26,9 +26,14 @@ from mixmansion.shared.config import AdapterParams
 from mixmansion.writers.port import PlaylistNotFound, PlaylistWriter
 
 
+def tid(n: int) -> str:
+    """A well-formed 22-character Spotify id."""
+    return f"{n:022d}"
+
+
 def _song(n: int, letter: str) -> Song:
     return Song(
-        id=f"t{n}",
+        id=tid(n),
         isrc=f"ISRC{n}",
         title=f"Song {n}",
         artists=[letter],
