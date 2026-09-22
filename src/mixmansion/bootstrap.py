@@ -12,12 +12,15 @@ from mixmansion.plan_stores.port import PlanStore
 from mixmansion.plan_stores.yaml_file import YamlFilePlanStore
 from mixmansion.pool_stores.file_kv import FileKVPoolStore
 from mixmansion.pool_stores.port import PoolStore
+from mixmansion.retrievers.playlist import PlaylistRetriever
 from mixmansion.retrievers.port import SongRetriever
 from mixmansion.shared.config import AppSettings, ServiceOverrides, load
 from mixmansion.shared.spotify import SpotifyService, SpotifySettings
 from mixmansion.writers.port import PlaylistWriter
 
-RETRIEVERS: dict[str, type[SongRetriever]] = {}
+RETRIEVERS: dict[str, type[SongRetriever]] = {
+    "playlist": PlaylistRetriever,
+}
 CATEGORIZERS: dict[str, type[Categorizer]] = {}
 GROUPERS: dict[str, type[Grouper]] = {}
 NAMERS: dict[str, type[PlaylistNamer]] = {}
