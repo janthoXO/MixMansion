@@ -119,7 +119,7 @@ No. It only creates or updates the playlists listed in a plan you've approved. N
 Yes, once the LLM connector lands: point `LLM_PROVIDER`/`LLM_MODEL` at a local model server such as Ollama and no data goes to a cloud LLM. Spotify itself, of course, is always a cloud API.
 
 **What data does it send to Spotify, Last.fm or an LLM?**
-Spotify: playlist and track metadata via its Web API, plus the playlists MixMansion creates. Last.fm (planned): artist and track names, to fetch genre tags. An LLM provider (planned): song titles, artists and tags, to generate mood labels and playlist names/descriptions.
+Spotify: playlist and track metadata via its Web API, plus the playlists MixMansion creates. Last.fm (planned): artist and track names, to fetch genre tags. An LLM provider (planned): song titles, artists, lyrics and tags, to generate mood labels and playlist names/descriptions.
 
 **I'm getting a Spotify authorization error.**
 Check that `SPOTIFY_REDIRECT_URI` matches the redirect URI in your app's dashboard exactly, and that your Spotify account is added as a user under the app's settings (required while the app is in development mode).
