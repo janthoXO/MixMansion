@@ -162,6 +162,8 @@ The LLM (theme descriptions, playlist names) and the embeddings model (theme sim
 
 **Keywords** is a third categorizer: it compares the literal words songs' lyrics share (TF-IDF over LRCLIB lyrics), no LLM needed. Songs mentioning the same distinctive words, e.g. "california" or "midnight", become neighbours. Like theme, songs without lyrics on LRCLIB are uncovered for it.
 
+**Language** detects each song's lyric language offline with [py3langid](https://github.com/adbar/py3langid), no LLM or network call needed beyond fetching the lyrics. Songs whose detected language falls below `--opt language.min_probability` stay uncovered, like songs without lyrics.
+
 Answers are cached in `.mixmansion/llm_cache.sqlite`, so running `plan` again on the same songs costs nothing.
 
 The `llm` namer takes its own options, e.g. `--opt llm.language=de` or `--opt llm.style="lowercase, no emojis"`; see `.env.example` for `MIXMANSION_NAMER_LLM_*` defaults.
