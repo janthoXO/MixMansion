@@ -28,7 +28,7 @@ class AppSettings(BaseSettings):
     writer: str = "spotify"
     grouper: str = "louvain"
     namer: str = "llm"
-    weights: dict[str, float] = {"genre": 0.5, "theme": 0.5}
+    weights: dict[str, float] = {"genre": 1.0, "theme": 1.0, "keywords": 1.0}
     log_level: str = "INFO"
 
 

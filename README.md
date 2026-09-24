@@ -1,6 +1,6 @@
 # MixMansion
 
-MixMansion is a Spotify playlist organizer that sorts your songs into new playlists by genre and lyrical theme, using an LLM to name the results, with a plan you review and approve before anything changes on Spotify.
+MixMansion is a Spotify playlist organizer that sorts your songs into new playlists by genre, lyrical theme and lyric keywords, using an LLM to name the results, with a plan you review and approve before anything changes on Spotify.
 
 [![Release](https://github.com/janthoXO/MixMansion/actions/workflows/release.yml/badge.svg)](https://github.com/janthoXO/MixMansion/actions/workflows/release.yml)
 ![Python](https://img.shields.io/badge/python-3.12%2B-blue)
@@ -10,12 +10,12 @@ MixMansion is not affiliated with or endorsed by Spotify.
 
 ## Status
 
-The first round is complete: playlist and search retrievers, genre and theme categorizers, the Louvain grouper, the LLM namer, the Spotify writer, and file-based pool and plan stores. Next up are a genre retriever, a Postgres pool store and a REST API (see the [open issues](https://github.com/janthoXO/MixMansion/issues)).
+The first round is complete: playlist and search retrievers, genre, theme and keywords categorizers, the Louvain grouper, the LLM namer, the Spotify writer, and file-based pool and plan stores. Next up are a genre retriever, a Postgres pool store and a REST API (see the [open issues](https://github.com/janthoXO/MixMansion/issues)).
 
 ## Features
 
 - Builds a pool of songs from several sources (existing playlists, free-text search, more to come)
-- Groups songs by weighted genre and lyrical theme similarity, not just one signal
+- Groups songs by weighted genre, lyrical theme and lyric keyword similarity, not just one signal
 - A song that fits two groups equally well can land in both playlists
 - Names and describes each playlist with a local or cloud LLM
 - Emits an editable plan file you approve before anything is written to Spotify
@@ -65,7 +65,7 @@ uv run mixmansion plan -o plan.yaml          # choose categories and weights, th
 uv run mixmansion apply plan.yaml
 ```
 
-`plan` asks which categories should shape the playlists (genre, theme, …; all of them by default) and how much each one counts. Pressing Enter keeps them equal, and entering `3` for genre against `1` for theme makes genre count three times as much. To skip the questions, pass the weights yourself: `plan --by genre=3 --by theme=1`. Scripts and CI aren't asked; they use `MIXMANSION_WEIGHTS`.
+`plan` asks which categories should shape the playlists (genre, theme, keywords; all of them by default) and how much each one counts. Pressing Enter keeps them equal, and entering `3` for genre against `1` for theme makes genre count three times as much. To skip the questions, pass the weights yourself: `plan --by genre=3 --by theme=1`. Scripts and CI aren't asked; they use `MIXMANSION_WEIGHTS`.
 
 Only playlists you own or collaborate on can be read back (a Spotify restriction for development-mode apps), so the picker and `pool add playlist` only work with those. Spotify returns at most 10 search hits per request, so `pool add search` pages through results to reach `--limit` (default 20).
 
@@ -78,7 +78,7 @@ version: 1
 approved: false
 generated:
   pool_size: 42
-  weights: {genre: 0.5, theme: 0.5}
+  weights: {genre: 1.0, theme: 1.0, keywords: 1.0}
 playlists:
   - name: "Late Night Drive"
     description: "Synth-driven tracks for empty highways after midnight."
@@ -113,7 +113,7 @@ flowchart LR
     F --> G[You edit & approve]
     G --> H[Apply to Spotify]
 ```
-Songs are retrieved into a pool, scored for similarity on each dimension (genre, theme), grouped into playlists, named, and written to a plan file you edit and approve before `apply` touches Spotify.
+Songs are retrieved into a pool, scored for similarity on each dimension (genre, theme, keywords), grouped into playlists, named, and written to a plan file you edit and approve before `apply` touches Spotify.
 
 ## Architecture in brief
 
@@ -141,7 +141,7 @@ Settings are read from real environment variables, then a `.env` file, then defa
 | `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` | Your Spotify app credentials (required) |
 | `SPOTIFY_REDIRECT_URI` | Must match the app's dashboard setting; default `http://127.0.0.1:8888/callback` |
 | `MIXMANSION_WORKSPACE` | Local state directory (caches, pool, tokens); default `.mixmansion` |
-| `MIXMANSION_WEIGHTS` | Default categorizer weights, e.g. `{"genre": 0.5, "theme": 0.5}` |
+| `MIXMANSION_WEIGHTS` | Default categorizer weights, e.g. `{"genre": 1, "theme": 1, "keywords": 1}` |
 | `MIXMANSION_GROUPER`, `MIXMANSION_NAMER` | Which grouper/namer adapter to use by default |
 | `LASTFM_API_KEY` | Last.fm key for the genre categorizer ([create one](https://www.last.fm/api/account/create)) |
 | `LLM_PROVIDER`, `LLM_MODEL`, `LLM_URL`, `LLM_API_KEY` | LLM used for naming and theme descriptions (see below) |
@@ -156,6 +156,8 @@ The LLM (theme descriptions, playlist names) and the embeddings model (theme sim
 - **Cloud:** e.g. `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-haiku-4-5`, `LLM_API_KEY=...`; embeddings e.g. `EMBEDDINGS_PROVIDER=openai`, `EMBEDDINGS_MODEL=text-embedding-3-small`, `EMBEDDINGS_API_KEY=...`.
 
 **Theme descriptions** look up lyrics on [LRCLIB](https://lrclib.net) (no key needed), then ask the LLM to describe what each song's lyrics are about in batches of 10 songs. Songs with no lyrics on LRCLIB are left uncovered for this dimension. Expect roughly 5–30 seconds per batch with a 14B model on a laptop GPU, so a 500-song pool takes a few minutes locally and well under a minute with a cloud model. Smaller local models work better with `--opt theme.batch_size=5`.
+
+**Keywords** is a third categorizer: it compares the literal words songs' lyrics share (TF-IDF over LRCLIB lyrics), no LLM needed. Songs mentioning the same distinctive words, e.g. "california" or "midnight", become neighbours. Like theme, songs without lyrics on LRCLIB are uncovered for it.
 
 Answers are cached in `.mixmansion/llm_cache.sqlite`, so running `plan` again on the same songs costs nothing.
 
