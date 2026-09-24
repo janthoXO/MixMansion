@@ -87,6 +87,30 @@ class FakeCategorizer(Categorizer):
         )
 
 
+class FakeBucketCategorizer(Categorizer):
+    """A bucketable categorizer that splits songs 1-4 by first artist letter."""
+
+    name = "bucket"
+    bucketable = True
+
+    class Params(AdapterParams):
+        model_config = SettingsConfigDict(env_prefix="MIXMANSION_CATEGORIZER_BUCKET_")
+
+    # A/B -> bucket "x", C/D -> bucket "y"; songs 5-6 (E/F) are left uncovered.
+    _BUCKET = {"A": "x", "B": "x", "C": "y", "D": "y"}
+
+    def vectors(self, songs: list[Song], params: AdapterParams) -> SongVectors:
+        covered = [s for s in songs if s.artists[0] in self._BUCKET]
+        return SongVectors(
+            dimension="bucket",
+            ids=[s.id for s in covered],
+            vectors=np.array(
+                [[1.0, 0.0] if self._BUCKET[s.artists[0]] == "x" else [0.0, 1.0] for s in covered]
+            ),
+            labels={s.id: [self._BUCKET[s.artists[0]]] for s in covered},
+        )
+
+
 class FakeGrouper(Grouper):
     name = "fake"
 

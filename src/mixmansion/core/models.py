@@ -83,6 +83,16 @@ class SongVectors(BaseModel):
     def empty(cls, dimension: str) -> "SongVectors":
         return cls(dimension=dimension, ids=[], vectors=np.zeros((0, 0)))
 
+    def subset(self, ids: set[str]) -> "SongVectors":
+        """Only the rows of the given songs, e.g. those of one bucket."""
+        rows = [i for i, song_id in enumerate(self.ids) if song_id in ids]
+        return SongVectors(
+            dimension=self.dimension,
+            ids=[self.ids[i] for i in rows],
+            vectors=self.vectors[rows],
+            labels={k: v for k, v in self.labels.items() if k in ids},
+        )
+
 
 class ScoredSong(BaseModel):
     song_id: str

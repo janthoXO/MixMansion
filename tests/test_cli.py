@@ -1,5 +1,7 @@
 """CLI tests against the fakes, driving mixmansion.interfaces.cli with typer's CliRunner."""
 
+from collections import deque
+
 import pytest
 from fakes import (
     FakePlanStore,
@@ -178,22 +180,34 @@ class FakePrompt:
 
 
 class FakeQuestionary:
-    """Records the prompts and answers them from a script."""
+    """Records the prompts and answers them from a script.
+
+    `checkbox` is either one answer (used for the single checkbox() call expected) or
+    a list of answers (e.g. [["bucket"], ["fake"]]), consumed in order across successive
+    checkbox() calls -- buckets are asked before categories.
+    """
 
     def __init__(self, checkbox, texts=()):
-        self.checkbox_answer = checkbox
+        if (
+            isinstance(checkbox, list)
+            and checkbox
+            and all(c is None or isinstance(c, list) for c in checkbox)
+        ):
+            self._answers = deque(checkbox)
+        else:
+            self._answers = deque([checkbox])
         self.texts = list(texts)
         self.choices = []
         self.asked = []
         self.validate = None
 
     def Choice(self, title, value, checked=False):  # noqa: N802 — mirrors questionary's API
-        self.choices.append((title, value, checked))
         return (title, value, checked)
 
     def checkbox(self, message, choices):
         self.asked.append(message)
-        return FakePrompt(self.checkbox_answer)
+        self.choices = choices
+        return FakePrompt(self._answers.popleft())
 
     def text(self, message, instruction=None, validate=None):
         self.asked.append(message.strip())
@@ -201,9 +215,9 @@ class FakeQuestionary:
         return FakePrompt(self.texts.pop(0))
 
 
-def _weights(cli, monkeypatch, checkbox, texts=(), tty=True):
+def _weights(cli, monkeypatch, checkbox, texts=(), tty=True, buckets=None):
     app_cli, app, _instances, _captured = cli
-    fake = FakeQuestionary(checkbox, texts)
+    fake = FakeQuestionary([buckets if buckets is not None else [], checkbox], texts)
     monkeypatch.setattr(cli_mod, "questionary", fake)
     monkeypatch.setattr(cli_mod, "_interactive", lambda: tty)
     built = {}
@@ -215,12 +229,16 @@ def _weights(cli, monkeypatch, checkbox, texts=(), tty=True):
     return result, fake, built.get("spec")
 
 
-def test_plan_asks_for_categories_and_equal_weights(cli, monkeypatch):
-    result, fake, spec = _weights(cli, monkeypatch, checkbox=["fake"], texts=[])
+def test_plan_asks_buckets_then_categories(cli, monkeypatch):
+    result, fake, spec = _weights(cli, monkeypatch, checkbox=["fake"], texts=[], buckets=["bucket"])
     assert result.exit_code == 0, result.output
+    assert len(fake.asked) == 2  # buckets, then categories
+    assert "buckets" in fake.asked[0]
+    # the bucket categorizer is excluded from the category prompt (last one asked)
     assert fake.choices == [
         ("fake — A categorizer that splits songs by index parity.", "fake", True)
     ]
+    assert [b.name for b in spec.buckets] == ["bucket"]
     assert {n: c.weight for n, c in spec.categorizers.items()} == {"fake": 1.0}
 
 
@@ -260,3 +278,19 @@ def test_plan_needs_at_least_one_category(cli, monkeypatch):
     result, _fake, _spec = _weights(cli, monkeypatch, checkbox=[])
     assert result.exit_code != 0
     assert "at least one category" in str(result.exception) + result.output
+
+
+def test_plan_bucket_flag_reaches_spec_and_skips_bucket_prompt(cli, monkeypatch):
+    """--bucket given: only the category prompt runs, and zero categories is allowed."""
+    app_cli, app, _i, _c = cli
+    fake = FakeQuestionary(checkbox=[])
+    monkeypatch.setattr(cli_mod, "questionary", fake)
+    monkeypatch.setattr(cli_mod, "_interactive", lambda: True)
+    spec = {}
+    monkeypatch.setattr(app, "build_plan", lambda pool, s, ref=None: spec.update(s=s) or "p")
+    monkeypatch.setattr(app, "get_plan", lambda ref: Plan(playlists=[]))
+    result = runner.invoke(app_cli, ["plan", "--bucket", "bucket"])
+    assert result.exit_code == 0, result.output
+    assert len(fake.asked) == 1  # only the category prompt, buckets came from the flag
+    assert [b.name for b in spec["s"].buckets] == ["bucket"]
+    assert spec["s"].categorizers == {}

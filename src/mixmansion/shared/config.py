@@ -29,6 +29,7 @@ class AppSettings(BaseSettings):
     grouper: str = "louvain"
     namer: str = "llm"
     weights: dict[str, float] = {"genre": 1.0, "theme": 1.0, "keywords": 1.0}
+    buckets: list[str] = []  # bucketable categorizers that split the pool before grouping
     log_level: str = "INFO"
 
 

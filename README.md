@@ -65,7 +65,9 @@ uv run mixmansion plan -o plan.yaml          # choose categories and weights, th
 uv run mixmansion apply plan.yaml
 ```
 
-`plan` asks which categories should shape the playlists (genre, theme, keywords; all of them by default) and how much each one counts. Pressing Enter keeps them equal, and entering `3` for genre against `1` for theme makes genre count three times as much. To skip the questions, pass the weights yourself: `plan --by genre=3 --by theme=1`. Scripts and CI aren't asked; they use `MIXMANSION_WEIGHTS`.
+`plan` first asks whether to split the pool into buckets (none by default), then which categories should shape the playlists within each bucket (genre, theme, keywords; all of them by default) and how much each one counts. Pressing Enter keeps them equal, and entering `3` for genre against `1` for theme makes genre count three times as much. To skip the questions, pass the choices yourself: `plan --bucket language --by genre=3 --by theme=1`. Scripts and CI aren't asked; they use `MIXMANSION_BUCKETS` and `MIXMANSION_WEIGHTS`.
+
+A bucket categorizer (e.g. a language categorizer) sorts songs into buckets first, and songs in different buckets never end up in the same playlist; the weighted categories then group songs within each bucket as usual. With buckets and no weighted categories, each bucket becomes one playlist.
 
 Only playlists you own or collaborate on can be read back (a Spotify restriction for development-mode apps), so the picker and `pool add playlist` only work with those. Spotify returns at most 10 search hits per request, so `pool add search` pages through results to reach `--limit` (default 20).
 
@@ -78,6 +80,7 @@ version: 1
 approved: false
 generated:
   pool_size: 42
+  buckets: {}
   weights: {genre: 1.0, theme: 1.0, keywords: 1.0}
 playlists:
   - name: "Late Night Drive"

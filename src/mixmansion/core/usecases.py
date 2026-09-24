@@ -7,7 +7,18 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from mixmansion.core.models import Choice, Plan, PlanTrack, Playlist, Song, SongPool
+from mixmansion.core.models import (
+    Choice,
+    Group,
+    Grouping,
+    Plan,
+    PlanTrack,
+    Playlist,
+    ScoredSong,
+    Song,
+    SongPool,
+    SongVectors,
+)
 from mixmansion.shared.config import AdapterParams, AppSettings, load
 from mixmansion.writers.port import PlaylistNotFound
 
@@ -24,6 +35,7 @@ class AdapterInfo(BaseModel):
     name: str
     description: str = ""  # first line of the adapter's docstring
     params_schema: dict
+    bucketable: bool = False  # categorizers only: can split the pool into buckets
 
 
 class AdapterSpec(BaseModel):
@@ -37,6 +49,7 @@ class CategorizerSpec(BaseModel):
 
 
 class PlanSpec(BaseModel):
+    buckets: list[AdapterSpec] | None = None  # default: MIXMANSION_BUCKETS
     categorizers: dict[str, CategorizerSpec] | None = None  # default: MIXMANSION_WEIGHTS
     grouper: AdapterSpec | None = None  # default: MIXMANSION_GROUPER
     namer: AdapterSpec | None = None  # default: MIXMANSION_NAMER
@@ -91,6 +104,7 @@ class MixMansion:
                 name=name,
                 description=(inspect.getdoc(cls) or "").split("\n")[0],
                 params_schema=cls.Params.model_json_schema(),
+                bucketable=getattr(cls, "bucketable", False),
             )
             for name, cls in self._port(port).items()
         ]
@@ -131,29 +145,64 @@ class MixMansion:
         songs = pool.songs
         by_id = {s.id: s for s in songs}
 
-        categorizers = spec.categorizers or {
-            name: CategorizerSpec(weight=w) for name, w in self.settings.weights.items()
-        }
-        dimensions, weights, used = [], {}, {}
+        buckets = (
+            spec.buckets
+            if spec.buckets is not None
+            else [AdapterSpec(name=n) for n in self.settings.buckets]
+        )
+        categorizers = (
+            spec.categorizers
+            if spec.categorizers is not None
+            else {name: CategorizerSpec(weight=w) for name, w in self.settings.weights.items()}
+        )
         labels: dict[str, list[str]] = {}
-        for name, cat in categorizers.items():
-            if cat.weight <= 0:
-                continue
-            adapter, p = self._adapter("categorizer", name, cat.params)
+
+        def categorize(name: str, params: dict) -> tuple[SongVectors, dict]:
+            adapter, p = self._adapter("categorizer", name, params)
             dim = adapter.vectors(songs, p)
-            dimensions.append(dim)
-            weights[dim.dimension] = cat.weight
-            used[name] = p.model_dump(mode="json")
             for song_id, tags in dim.labels.items():
                 labels[song_id] = labels.get(song_id, []) + [
                     t for t in tags if t not in labels.get(song_id, [])
                 ]
-        if not dimensions:
-            raise MixMansionError("no categorizer has a weight > 0")
+            return dim, p.model_dump(mode="json")
+
+        splits, split_used = [], {}
+        for b in buckets:
+            if not getattr(self._cls("categorizer", b.name), "bucketable", False):
+                raise MixMansionError(f"categorizer {b.name!r} can't split the pool into buckets")
+            dim, split_used[b.name] = categorize(b.name, b.params)
+            splits.append(dim)
+
+        dimensions, weights, used = [], {}, {}
+        for name, cat in categorizers.items():
+            # within a bucket every song shares the bucket's value, so weighing it adds nothing
+            if cat.weight <= 0 or name in split_used:
+                continue
+            dim, used[name] = categorize(name, cat.params)
+            dimensions.append(dim)
+            weights[dim.dimension] = cat.weight
+        if not dimensions and not splits:
+            raise MixMansionError("pick a bucket or a categorizer with a weight > 0")
+
+        # songs without a value for a bucket categorizer share the bucket `None`
+        bucketed: dict[tuple, list[Song]] = {}
+        for s in songs:
+            key = tuple((d.labels.get(s.id) or [None])[0] for d in splits)
+            bucketed.setdefault(key, []).append(s)
 
         g_spec = spec.grouper or AdapterSpec(name=self.settings.grouper)
         grouper, g_params = self._adapter("grouper", g_spec.name, g_spec.params)
-        grouping = grouper.group(songs, dimensions, weights, g_params)
+        grouping = Grouping(groups=[])
+        for bucket in bucketed.values():
+            if dimensions:
+                ids = {s.id for s in bucket}
+                part = grouper.group(bucket, [d.subset(ids) for d in dimensions], weights, g_params)
+            else:  # buckets only: each bucket is one playlist
+                part = Grouping(
+                    groups=[Group(songs=[ScoredSong(song_id=s.id, score=1.0) for s in bucket])]
+                )
+            grouping.groups += part.groups
+            grouping.unassigned += part.unassigned
 
         n_spec = spec.namer or AdapterSpec(name=self.settings.namer)
         namer, n_params = self._adapter("namer", n_spec.name, n_spec.params)
@@ -173,6 +222,7 @@ class MixMansion:
             generated={
                 "pool_id": pool_id,
                 "pool_size": len(songs),
+                "buckets": split_used,
                 "weights": weights,
                 "categorizers": used,
                 "grouper": {g_spec.name: g_params.model_dump(mode="json")},
