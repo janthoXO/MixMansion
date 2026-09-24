@@ -5,6 +5,7 @@ from collections.abc import Callable
 from typing import Any
 
 from mixmansion.categorizers.genre import GenreCategorizer
+from mixmansion.categorizers.keywords import KeywordsCategorizer
 from mixmansion.categorizers.port import Categorizer
 from mixmansion.categorizers.theme import ThemeCategorizer
 from mixmansion.core.usecases import MixMansion
@@ -29,7 +30,11 @@ RETRIEVERS: dict[str, type[SongRetriever]] = {
     "playlist": PlaylistRetriever,
     "search": SearchRetriever,
 }
-CATEGORIZERS: dict[str, type[Categorizer]] = {"theme": ThemeCategorizer, "genre": GenreCategorizer}
+CATEGORIZERS: dict[str, type[Categorizer]] = {
+    "genre": GenreCategorizer,
+    "theme": ThemeCategorizer,
+    "keywords": KeywordsCategorizer,
+}
 GROUPERS: dict[str, type[Grouper]] = {"louvain": LouvainGrouper}
 NAMERS: dict[str, type[PlaylistNamer]] = {"llm": LLMNamer}
 WRITERS: dict[str, type[PlaylistWriter]] = {"spotify": SpotifyWriter}
