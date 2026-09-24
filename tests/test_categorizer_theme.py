@@ -7,7 +7,7 @@ import requests
 from fakes import cos, tid
 
 from mixmansion.categorizers import lrclib
-from mixmansion.categorizers.mood import MoodCategorizer, SongTags, TagResponse, normalize
+from mixmansion.categorizers.theme import SongTheme, ThemeCategorizer, ThemeResponse
 from mixmansion.core.models import Song
 from mixmansion.shared.config import AppSettings
 from mixmansion.shared.llm import LLMError
@@ -69,29 +69,25 @@ def test_instrumental_and_misses_have_no_lyrics():
     assert lrclib.lyrics(FakeSession(error=requests.ConnectionError("offline")), song(1)) is None
 
 
-# ── mood vectors ─────────────────────────────────────────────────────────────
+# ── theme vectors ────────────────────────────────────────────────────────────
 
-SAD = ["melancholic", "rainy", "heartbreak"]
-HAPPY = ["euphoric", "sunny", "party"]
+SAD = "aching heartbreak and the loss of someone loved"
+HAPPY = "joyful celebration of love and life"
 VECTORS = {
-    "melancholic": [1, 0, 0],
-    "rainy": [0.9, 0.1, 0],
-    "heartbreak": [0.8, 0, 0.2],
-    "euphoric": [0, 1, 0],
-    "sunny": [0.1, 0.9, 0],
-    "party": [0, 0.8, 0.2],
+    SAD: [1, 0, 0],
+    HAPPY: [0, 1, 0],
 }
 
 
 class FakeLLM:
-    def __init__(self, tags_by_title, fail_batches=0, drop=()):
-        self.tags_by_title = tags_by_title
+    def __init__(self, theme_by_title, fail_batches=0, drop=()):
+        self.theme_by_title = theme_by_title
         self.fail_batches = fail_batches
         self.drop = set(drop)
         self.requests = []
 
     def complete_json_many(self, requests_, schema):
-        assert schema is TagResponse
+        assert schema is ThemeResponse
         out = []
         for system, user in requests_:
             self.requests.append((system, json.loads(user)))
@@ -102,9 +98,9 @@ class FakeLLM:
             songs = json.loads(user)["songs"]
             dropped = len(songs) > 1 and self.drop
             out.append(
-                TagResponse(
+                ThemeResponse(
                     songs=[
-                        SongTags(id=s["id"], tags=self.tags_by_title[s["title"]])
+                        SongTheme(id=s["id"], theme=self.theme_by_title[s["title"]])
                         for s in songs
                         if not (dropped and s["id"] in self.drop)
                     ]
@@ -113,62 +109,70 @@ class FakeLLM:
         return out
 
     def embed(self, texts):
-        return np.array([VECTORS[t.strip().lower()] for t in texts], dtype=float)
+        return np.array([VECTORS[t.strip()] for t in texts], dtype=float)
 
 
 def categorizer(llm, monkeypatch, lyrics=None):
     monkeypatch.setattr(lrclib, "lyrics", lambda http, s: (lyrics or {}).get(s.id))
-    return MoodCategorizer(llm, AppSettings())
+    return ThemeCategorizer(llm, AppSettings())
 
 
-def test_similar_tags_are_neighbours(monkeypatch):
+def test_similar_themes_are_neighbours(monkeypatch):
     songs = [song(i, "sad" if i < 3 else "happy") for i in range(6)]
+    lyrics = {s.id: "some lyrics" for s in songs}
     llm = FakeLLM({"sad": SAD, "happy": HAPPY})
-    dim = categorizer(llm, monkeypatch).vectors(songs, MoodCategorizer.Params())
+    dim = categorizer(llm, monkeypatch, lyrics).vectors(songs, ThemeCategorizer.Params())
     assert cos(dim, tid(0), tid(1)) > 0.9 and cos(dim, tid(3), tid(4)) > 0.9
     assert cos(dim, tid(0), tid(3)) < 0.3
     assert dim.ids == [tid(i) for i in range(6)]
-    assert dim.labels[tid(0)] == SAD
+    assert dim.labels[tid(0)] == [SAD]
+
+
+def test_songs_without_lyrics_are_uncovered_and_never_sent(monkeypatch):
+    songs = [song(i, "sad") for i in range(3)]
+    lyrics = {tid(0): "some lyrics", tid(1): "more lyrics"}  # tid(2) has none
+    llm = FakeLLM({"sad": SAD})
+    dim = categorizer(llm, monkeypatch, lyrics).vectors(songs, ThemeCategorizer.Params())
+    assert dim.ids == [tid(0), tid(1)]
+    sent_ids = {s["id"] for _, user in llm.requests for s in user["songs"]}
+    assert tid(2) not in sent_ids
 
 
 def test_batches_and_lyrics_in_the_request(monkeypatch):
     songs = [song(i, "sad") for i in range(5)]
+    lyrics = {s.id: "x" * 50 for s in songs}
     llm = FakeLLM({"sad": SAD})
-    lyrics = {tid(0): "x" * 50}
-    params = MoodCategorizer.Params(batch_size=2, lyrics_max_chars=10, tags_per_song=6)
+    params = ThemeCategorizer.Params(batch_size=2, lyrics_max_chars=10)
     categorizer(llm, monkeypatch, lyrics).vectors(songs, params)
     assert [len(user["songs"]) for _, user in llm.requests] == [2, 2, 1]
     first = llm.requests[0][1]["songs"]
-    assert first[0]["lyrics"] == "x" * 10 and first[1]["lyrics"] is None
-    assert "about 6" in llm.requests[0][0] and "prompt v" in llm.requests[0][0]
+    assert first[0]["lyrics"] == "x" * 10
+    assert "prompt v" in llm.requests[0][0]
 
 
 def test_songs_missing_from_a_batch_are_retried_alone(monkeypatch):
     songs = [song(i, "sad") for i in range(3)]
+    lyrics = {s.id: "some lyrics" for s in songs}
     llm = FakeLLM({"sad": SAD}, drop={tid(1)})
-    dim = categorizer(llm, monkeypatch).vectors(songs, MoodCategorizer.Params())
+    dim = categorizer(llm, monkeypatch, lyrics).vectors(songs, ThemeCategorizer.Params())
     assert tid(1) in dim.ids
     assert [len(u["songs"]) for _, u in llm.requests] == [3, 1]
 
 
 def test_failed_batch_is_retried_then_left_uncovered(monkeypatch, caplog):
     songs = [song(i, "sad") for i in range(2)]
+    lyrics = {s.id: "some lyrics" for s in songs}
     llm = FakeLLM({"sad": SAD}, fail_batches=2)  # the batch and the first single retry fail
-    dim = categorizer(llm, monkeypatch).vectors(songs, MoodCategorizer.Params())
+    dim = categorizer(llm, monkeypatch, lyrics).vectors(songs, ThemeCategorizer.Params())
     assert dim.ids == [tid(1)]
-    assert "no mood tags" in caplog.text
+    assert "no theme" in caplog.text
 
 
-def test_each_unique_tag_is_embedded_once(monkeypatch):
-    songs = [song(i, "sad") for i in range(4)]
-    llm = FakeLLM({"sad": [" Melancholic", "rainy", "melancholic"]})
-    embedded = []
-    real = llm.embed
-    llm.embed = lambda texts: embedded.append(list(texts)) or real(texts)
-    dim = categorizer(llm, monkeypatch).vectors(songs, MoodCategorizer.Params())
-    assert embedded == [["melancholic", "rainy"]]
-    assert dim.labels[tid(0)] == ["melancholic", "rainy"]
-
-
-def test_normalize():
-    assert normalize(["  Late   Night ", "late night", "", "Sad"]) == ["late night", "sad"]
+def test_whitespace_is_cleaned_and_empty_description_is_uncovered(monkeypatch):
+    songs = [song(i, "sad" if i == 0 else "empty") for i in range(2)]
+    lyrics = {s.id: "some lyrics" for s in songs}
+    messy = "  " + SAD.replace(" ", "   ") + "  \n"
+    llm = FakeLLM({"sad": messy, "empty": "   "})
+    dim = categorizer(llm, monkeypatch, lyrics).vectors(songs, ThemeCategorizer.Params())
+    assert dim.ids == [tid(0)]
+    assert dim.labels[tid(0)] == [SAD]

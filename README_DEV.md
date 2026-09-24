@@ -338,4 +338,4 @@ CI has three workflows, each triggered only when relevant paths change:
 
   Check the [changelog](https://developer.spotify.com/documentation/web-api/references/changes/july-2026) before relying on any endpoint, and never hard-code page sizes: follow `next`.
 - **Last.fm tag matching.** The genre categorizer matches Last.fm tags by artist and title text; this can miss for typos, alternate titles, or obscure tracks, resulting in a song with no genre tags for that source.
-- **LRCLIB lyrics coverage.** The mood categorizer uses LRCLIB for lyrics; not every song has lyrics available there. A song with no lyrics is "uncovered" for the lyrics-derived part of mood — it's grouped using whatever mood signal is available plus the other dimensions, not treated as dissimilar to everything (see [Grouping explained](#4-grouping-explained)).
+- **LRCLIB lyrics coverage.** The theme categorizer uses LRCLIB for lyrics; not every song has lyrics available there. A song with no lyrics is "uncovered" for theme — it's grouped using the other dimensions, not treated as dissimilar to everything (see [Grouping explained](#4-grouping-explained)).

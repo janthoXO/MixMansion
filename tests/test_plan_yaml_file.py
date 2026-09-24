@@ -22,7 +22,7 @@ def store():
 
 def _plan() -> Plan:
     return Plan(
-        generated={"pool_id": "p1", "pool_size": 3, "weights": {"genre": 0.5, "mood": 0.5}},
+        generated={"pool_id": "p1", "pool_size": 3, "weights": {"genre": 0.5, "theme": 0.5}},
         playlists=[
             Playlist(
                 name="Late Night Drive",

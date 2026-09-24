@@ -1,6 +1,6 @@
 # MixMansion
 
-MixMansion is a Spotify playlist organizer that sorts your songs into new playlists by mood and vibe, using genre and mood similarity plus an LLM to name the results, with a plan you review and approve before anything changes on Spotify.
+MixMansion is a Spotify playlist organizer that sorts your songs into new playlists by genre and lyrical theme, using an LLM to name the results, with a plan you review and approve before anything changes on Spotify.
 
 [![Release](https://github.com/janthoXO/MixMansion/actions/workflows/release.yml/badge.svg)](https://github.com/janthoXO/MixMansion/actions/workflows/release.yml)
 ![Python](https://img.shields.io/badge/python-3.12%2B-blue)
@@ -10,13 +10,13 @@ MixMansion is not affiliated with or endorsed by Spotify.
 
 ## Status
 
-The first round is complete: playlist and search retrievers, genre and mood categorizers, the Louvain grouper, the LLM namer, the Spotify writer, and file-based pool and plan stores. Next up are a genre retriever, a Postgres pool store and a REST API (see the [open issues](https://github.com/janthoXO/MixMansion/issues)).
+The first round is complete: playlist and search retrievers, genre and theme categorizers, the Louvain grouper, the LLM namer, the Spotify writer, and file-based pool and plan stores. Next up are a genre retriever, a Postgres pool store and a REST API (see the [open issues](https://github.com/janthoXO/MixMansion/issues)).
 
 ## Features
 
 - Builds a pool of songs from several sources (existing playlists, free-text search, more to come)
-- Groups songs by weighted genre and mood similarity, not just one signal
-- A song that fits two moods equally well can land in both playlists
+- Groups songs by weighted genre and lyrical theme similarity, not just one signal
+- A song that fits two groups equally well can land in both playlists
 - Names and describes each playlist with a local or cloud LLM
 - Emits an editable plan file you approve before anything is written to Spotify
 - Never deletes songs and never touches a playlist outside the plan
@@ -28,7 +28,7 @@ Prerequisites:
 - Python 3.12 or later and [uv](https://docs.astral.sh/uv/)
 - A Spotify developer app: create one at the [Spotify developer dashboard](https://developer.spotify.com/dashboard), set its redirect URI to `http://127.0.0.1:8888/callback`, and, since the app starts in development mode, add your own Spotify account as a user under the app's settings
 - A [Last.fm API key](https://www.last.fm/api/account/create) (used by the genre categorizer)
-- Either a local LLM (e.g. [Ollama](https://ollama.com/)) or an API key for a cloud LLM provider (used by the mood categorizer and the namer)
+- Either a local LLM (e.g. [Ollama](https://ollama.com/)) or an API key for a cloud LLM provider (used by the theme categorizer and the namer)
 
 ### With uv
 
@@ -65,7 +65,7 @@ uv run mixmansion plan -o plan.yaml          # choose categories and weights, th
 uv run mixmansion apply plan.yaml
 ```
 
-`plan` asks which categories should shape the playlists (genre, mood, …; all of them by default) and how much each one counts. Pressing Enter keeps them equal, and entering `3` for genre against `1` for mood makes genre count three times as much. To skip the questions, pass the weights yourself: `plan --by genre=3 --by mood=1`. Scripts and CI aren't asked; they use `MIXMANSION_WEIGHTS`.
+`plan` asks which categories should shape the playlists (genre, theme, …; all of them by default) and how much each one counts. Pressing Enter keeps them equal, and entering `3` for genre against `1` for theme makes genre count three times as much. To skip the questions, pass the weights yourself: `plan --by genre=3 --by theme=1`. Scripts and CI aren't asked; they use `MIXMANSION_WEIGHTS`.
 
 Only playlists you own or collaborate on can be read back (a Spotify restriction for development-mode apps), so the picker and `pool add playlist` only work with those. Spotify returns at most 10 search hits per request, so `pool add search` pages through results to reach `--limit` (default 20).
 
@@ -78,10 +78,10 @@ version: 1
 approved: false
 generated:
   pool_size: 42
-  weights: {genre: 0.5, mood: 0.5}
+  weights: {genre: 0.5, theme: 0.5}
 playlists:
   - name: "Late Night Drive"
-    description: "Moody synth-driven tracks for empty highways after midnight."
+    description: "Synth-driven tracks for empty highways after midnight."
     spotify_id: null
     tracks:
       - {id: 4uLU6hMCjMI75M1A2tKUQC, artist: "The Midnight", title: "Sunset"}
@@ -113,7 +113,7 @@ flowchart LR
     F --> G[You edit & approve]
     G --> H[Apply to Spotify]
 ```
-Songs are retrieved into a pool, scored for similarity on each dimension (genre, mood), grouped into playlists, named, and written to a plan file you edit and approve before `apply` touches Spotify.
+Songs are retrieved into a pool, scored for similarity on each dimension (genre, theme), grouped into playlists, named, and written to a plan file you edit and approve before `apply` touches Spotify.
 
 ## Architecture in brief
 
@@ -141,21 +141,21 @@ Settings are read from real environment variables, then a `.env` file, then defa
 | `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` | Your Spotify app credentials (required) |
 | `SPOTIFY_REDIRECT_URI` | Must match the app's dashboard setting; default `http://127.0.0.1:8888/callback` |
 | `MIXMANSION_WORKSPACE` | Local state directory (caches, pool, tokens); default `.mixmansion` |
-| `MIXMANSION_WEIGHTS` | Default categorizer weights, e.g. `{"genre": 0.5, "mood": 0.5}` |
+| `MIXMANSION_WEIGHTS` | Default categorizer weights, e.g. `{"genre": 0.5, "theme": 0.5}` |
 | `MIXMANSION_GROUPER`, `MIXMANSION_NAMER` | Which grouper/namer adapter to use by default |
 | `LASTFM_API_KEY` | Last.fm key for the genre categorizer ([create one](https://www.last.fm/api/account/create)) |
-| `LLM_PROVIDER`, `LLM_MODEL`, `LLM_URL`, `LLM_API_KEY` | LLM used for naming and mood tagging (see below) |
-| `EMBEDDINGS_PROVIDER`, `EMBEDDINGS_MODEL` | Embedding model for mood similarity (see below) |
+| `LLM_PROVIDER`, `LLM_MODEL`, `LLM_URL`, `LLM_API_KEY` | LLM used for naming and theme descriptions (see below) |
+| `EMBEDDINGS_PROVIDER`, `EMBEDDINGS_MODEL` | Embedding model for theme similarity (see below) |
 
 ### Local or cloud LLM
 
-The LLM (mood tags, playlist names) and the embeddings model (mood similarity) are set separately, so you can mix them. Only the provider and model are required; everything goes through [LiteLLM](https://docs.litellm.ai/docs/providers), so any provider it supports works.
+The LLM (theme descriptions, playlist names) and the embeddings model (theme similarity) are set separately, so you can mix them. Only the provider and model are required; everything goes through [LiteLLM](https://docs.litellm.ai/docs/providers), so any provider it supports works.
 
 - **Local with Ollama:** `ollama pull qwen2.5:14b && ollama pull nomic-embed-text`, then `LLM_PROVIDER=ollama`, `LLM_MODEL=qwen2.5:14b`, `LLM_URL=http://localhost:11434`, and the same for `EMBEDDINGS_*` with `nomic-embed-text`. Nothing leaves your machine except the Spotify, Last.fm and LRCLIB lookups.
 - **LM Studio, vLLM or another OpenAI-compatible server:** `LLM_PROVIDER=openai_compatible` and `LLM_URL=<server>/v1`.
 - **Cloud:** e.g. `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-haiku-4-5`, `LLM_API_KEY=...`; embeddings e.g. `EMBEDDINGS_PROVIDER=openai`, `EMBEDDINGS_MODEL=text-embedding-3-small`, `EMBEDDINGS_API_KEY=...`.
 
-**Mood tagging** looks up lyrics on [LRCLIB](https://lrclib.net) (no key needed), then asks the LLM for mood and theme tags in batches of 10 songs. Expect roughly 5–30 seconds per batch with a 14B model on a laptop GPU, so a 500-song pool takes a few minutes locally and well under a minute with a cloud model. Smaller local models work better with `--opt mood.batch_size=5`.
+**Theme descriptions** look up lyrics on [LRCLIB](https://lrclib.net) (no key needed), then ask the LLM to describe what each song's lyrics are about in batches of 10 songs. Songs with no lyrics on LRCLIB are left uncovered for this dimension. Expect roughly 5–30 seconds per batch with a 14B model on a laptop GPU, so a 500-song pool takes a few minutes locally and well under a minute with a cloud model. Smaller local models work better with `--opt theme.batch_size=5`.
 
 Answers are cached in `.mixmansion/llm_cache.sqlite`, so running `plan` again on the same songs costs nothing.
 
@@ -172,13 +172,13 @@ No. It only creates or updates the playlists listed in a plan you've approved. N
 Yes: point `LLM_PROVIDER`/`LLM_MODEL` at a local model server such as Ollama and no data goes to a cloud LLM. Spotify, Last.fm and LRCLIB lookups still go over the internet.
 
 **What data does it send to Spotify, Last.fm or an LLM?**
-Spotify: playlist and track metadata via its Web API, plus the playlists MixMansion creates. Last.fm: artist and track names, to fetch genre tags. LRCLIB: artist, title, album and duration, to fetch lyrics. Your LLM provider: song titles, artists, lyrics and tags, to generate mood labels and playlist names/descriptions.
+Spotify: playlist and track metadata via its Web API, plus the playlists MixMansion creates. Last.fm: artist and track names, to fetch genre tags. LRCLIB: artist, title, album and duration, to fetch lyrics. Your LLM provider: song titles, artists, lyrics and tags, to generate theme descriptions and playlist names/descriptions.
 
 **I'm getting a Spotify authorization error.**
 Check that `SPOTIFY_REDIRECT_URI` matches the redirect URI in your app's dashboard exactly, and that your Spotify account is added as a user under the app's settings (required while the app is in development mode).
 
-**Some songs don't get a mood, or the mood categorizer says they're "uncovered."**
-Mood tags come from lyrics (via LRCLIB) and genre tags from Spotify and Last.fm, and neither source covers every song. A song without data for one dimension is still grouped using the dimensions that do have data for it — it isn't penalized for the missing one.
+**Some songs don't get a theme, or the theme categorizer says they're "uncovered."**
+Theme descriptions come from lyrics (via LRCLIB) and genre tags from Spotify and Last.fm, and neither source covers every song. A song without data for one dimension is still grouped using the dimensions that do have data for it — it isn't penalized for the missing one.
 
 **The local LLM is slow.**
 Local models are much slower than cloud APIs, especially for larger models. Completions and embeddings are cached on disk, so re-running the pipeline on the same pool doesn't re-query anything already answered. Try a smaller model, or a cloud provider, if speed matters more than running locally.

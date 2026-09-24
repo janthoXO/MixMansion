@@ -9,4 +9,4 @@ def test_registries_hold_the_adapters_under_their_names():
     assert set(bootstrap.WRITERS) == {"spotify"}
     assert set(bootstrap.POOL_STORES) == {"file_kv"}
     assert set(bootstrap.PLAN_STORES) == {"yaml_file"}
-    assert "mood" in bootstrap.CATEGORIZERS and "llm" in bootstrap.NAMERS
+    assert "theme" in bootstrap.CATEGORIZERS and "llm" in bootstrap.NAMERS
