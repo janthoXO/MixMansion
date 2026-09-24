@@ -6,6 +6,7 @@ from typing import Any
 
 from mixmansion.categorizers.genre import GenreCategorizer
 from mixmansion.categorizers.keywords import KeywordsCategorizer
+from mixmansion.categorizers.language import LanguageCategorizer
 from mixmansion.categorizers.port import Categorizer
 from mixmansion.categorizers.theme import ThemeCategorizer
 from mixmansion.core.usecases import MixMansion
@@ -34,6 +35,7 @@ CATEGORIZERS: dict[str, type[Categorizer]] = {
     "genre": GenreCategorizer,
     "theme": ThemeCategorizer,
     "keywords": KeywordsCategorizer,
+    "language": LanguageCategorizer,
 }
 GROUPERS: dict[str, type[Grouper]] = {"louvain": LouvainGrouper}
 NAMERS: dict[str, type[PlaylistNamer]] = {"llm": LLMNamer}

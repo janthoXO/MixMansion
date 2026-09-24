@@ -67,7 +67,7 @@ uv run mixmansion apply plan.yaml
 
 `plan` first asks whether to split the pool into buckets (none by default), then which categories should shape the playlists within each bucket (genre, theme, keywords; all of them by default) and how much each one counts. Pressing Enter keeps them equal, and entering `3` for genre against `1` for theme makes genre count three times as much. To skip the questions, pass the choices yourself: `plan --bucket language --by genre=3 --by theme=1`. Scripts and CI aren't asked; they use `MIXMANSION_BUCKETS` and `MIXMANSION_WEIGHTS`.
 
-A bucket categorizer (e.g. a language categorizer) sorts songs into buckets first, and songs in different buckets never end up in the same playlist; the weighted categories then group songs within each bucket as usual. With buckets and no weighted categories, each bucket becomes one playlist.
+A bucket categorizer (currently `language`) sorts songs into buckets first, and songs in different buckets never end up in the same playlist; the weighted categories then group songs within each bucket as usual. With buckets and no weighted categories, each bucket becomes one playlist.
 
 Only playlists you own or collaborate on can be read back (a Spotify restriction for development-mode apps), so the picker and `pool add playlist` only work with those. Spotify returns at most 10 search hits per request, so `pool add search` pages through results to reach `--limit` (default 20).
 
@@ -161,6 +161,8 @@ The LLM (theme descriptions, playlist names) and the embeddings model (theme sim
 **Theme descriptions** look up lyrics on [LRCLIB](https://lrclib.net) (no key needed), then ask the LLM to describe what each song's lyrics are about in batches of 10 songs. Songs with no lyrics on LRCLIB are left uncovered for this dimension. Expect roughly 5–30 seconds per batch with a 14B model on a laptop GPU, so a 500-song pool takes a few minutes locally and well under a minute with a cloud model. Smaller local models work better with `--opt theme.batch_size=5`.
 
 **Keywords** is a third categorizer: it compares the literal words songs' lyrics share (TF-IDF over LRCLIB lyrics), no LLM needed. Songs mentioning the same distinctive words, e.g. "california" or "midnight", become neighbours. Like theme, songs without lyrics on LRCLIB are uncovered for it.
+
+**Language** detects each song's lyric language offline with [py3langid](https://github.com/adbar/py3langid), no LLM or network call needed beyond fetching the lyrics. Songs whose detected language falls below `--opt language.min_probability` stay uncovered, like songs without lyrics. Language can split the pool into buckets (`--bucket language`); songs without detected language, e.g. instrumentals, then share one bucket of their own.
 
 Answers are cached in `.mixmansion/llm_cache.sqlite`, so running `plan` again on the same songs costs nothing.
 
