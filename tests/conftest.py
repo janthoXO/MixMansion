@@ -2,6 +2,7 @@
 
 import pytest
 from fakes import (
+    FakeBucketCategorizer,
     FakeCategorizer,
     FakeGrouper,
     FakeNamer,
@@ -25,6 +26,7 @@ def fake_app():
     instances = {
         FakeRetriever: FakeRetriever(),
         FakeCategorizer: FakeCategorizer(),
+        FakeBucketCategorizer: FakeBucketCategorizer(),
         FakeGrouper: FakeGrouper(),
         FakeNamer: FakeNamer(),
         FakeWriter: FakeWriter(),
@@ -33,7 +35,7 @@ def fake_app():
     }
     adapters = {
         "retriever": {"fake": FakeRetriever},
-        "categorizer": {"fake": FakeCategorizer},
+        "categorizer": {"fake": FakeCategorizer, "bucket": FakeBucketCategorizer},
         "grouper": {"fake": FakeGrouper},
         "namer": {"fake": FakeNamer},
         "writer": {"fake": FakeWriter},

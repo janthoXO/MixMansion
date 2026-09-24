@@ -3,6 +3,7 @@
 import inspect
 import logging
 import sys
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Any, get_args, get_origin
@@ -119,7 +120,8 @@ def build_cli() -> typer.Typer:
     def adapters(port: Annotated[str, typer.Argument(help="e.g. retriever, categorizer")]) -> None:
         """List the adapters of a port and their params."""
         for info in state.app.list_adapters(port):
-            typer.secho(info.name, bold=True)
+            name = info.name + (" (bucketable)" if info.bucketable else "")
+            typer.secho(name, bold=True)
             props = info.params_schema.get("properties", {})
             required = set(info.params_schema.get("required", []))
             for name, prop in props.items():
@@ -151,6 +153,13 @@ def build_cli() -> typer.Typer:
             list[str] | None,
             typer.Option(help="CATEGORIZER=WEIGHT, repeatable. Default: MIXMANSION_WEIGHTS."),
         ] = None,
+        bucket: Annotated[
+            list[str] | None,
+            typer.Option(
+                help="Bucketable categorizer that splits the pool before grouping, "
+                "repeatable. Default: MIXMANSION_BUCKETS."
+            ),
+        ] = None,
         grouper: Annotated[str | None, typer.Option(help="Default: MIXMANSION_GROUPER.")] = None,
         namer: Annotated[str | None, typer.Option(help="Default: MIXMANSION_NAMER.")] = None,
         opt: Annotated[
@@ -161,12 +170,23 @@ def build_cli() -> typer.Typer:
     ) -> None:
         """Group the pool into playlists and write the plan for you to review.
 
-        Without --by, you pick the categories and their weights interactively.
+        Without --by or --bucket, you pick the buckets, then the categories and their
+        weights, interactively.
         """
         app = state.app
-        weights = {k: float(v) for k, v in _parse_pairs(by or [], "--by")}
-        if not weights:
-            weights = _ask_weights(app) if _interactive() else app.settings.weights
+        by_pairs = _parse_pairs(by or [], "--by")
+        weights = {k: float(v) for k, v in by_pairs} if by_pairs else None
+        buckets = list(bucket) if bucket else None
+        if _interactive():
+            if buckets is None and weights is None:
+                buckets = _ask_buckets(app)
+                weights = _ask_weights(app, exclude=buckets)
+            elif weights is None:
+                weights = _ask_weights(app, exclude=buckets or [])
+        if buckets is None:
+            buckets = app.settings.buckets
+        if weights is None:
+            weights = app.settings.weights
         opts: dict[str, dict[str, str]] = {}
         for key, value in _parse_pairs(opt or [], "--opt"):
             adapter, sep, fld = key.partition(".")
@@ -178,6 +198,7 @@ def build_cli() -> typer.Typer:
         grouper = grouper or app.settings.grouper
         namer = namer or app.settings.namer
         spec = PlanSpec(
+            buckets=[AdapterSpec(name=b, params=opts.pop(b, {})) for b in buckets],
             categorizers={
                 n: CategorizerSpec(weight=w, params=opts.pop(n, {})) for n, w in weights.items()
             },
@@ -218,9 +239,26 @@ def build_cli() -> typer.Typer:
     return app
 
 
-def _ask_weights(app: MixMansion) -> dict[str, float]:
+def _ask_buckets(app: MixMansion) -> list[str]:
+    """Let the user pick bucketable categorizers to split the pool before grouping."""
+    infos = [i for i in app.list_adapters("categorizer") if i.bucketable]
+    if not infos:
+        return []
+    picked = questionary.checkbox(
+        "Split the songs into buckets first? (songs in different buckets never share a playlist)",
+        choices=[
+            questionary.Choice(f"{i.name} — {i.description}" if i.description else i.name, i.name)
+            for i in infos
+        ],
+    ).ask()
+    if picked is None:
+        raise typer.Abort()
+    return picked
+
+
+def _ask_weights(app: MixMansion, exclude: Collection[str] = ()) -> dict[str, float]:
     """Let the user pick the categorizers and weigh them; equal weights by default."""
-    infos = app.list_adapters("categorizer")
+    infos = [i for i in app.list_adapters("categorizer") if i.name not in exclude]
     picked = questionary.checkbox(
         "Which categories should shape the playlists?",
         choices=[
@@ -233,6 +271,8 @@ def _ask_weights(app: MixMansion) -> dict[str, float]:
     if picked is None:
         raise typer.Abort()
     if not picked:
+        if exclude:
+            return {}
         raise MixMansionError("pick at least one category")
     weights = dict.fromkeys(picked, 1.0)
     if len(picked) > 1:

@@ -2,6 +2,7 @@
 
 import logging
 
+import numpy as np
 import pytest
 from fakes import (
     SONGS,
@@ -15,7 +16,7 @@ from fakes import (
 from pydantic import ValidationError
 from pydantic_settings import SettingsConfigDict
 
-from mixmansion.core.models import PlanTrack, Playlist
+from mixmansion.core.models import PlanTrack, Playlist, SongVectors
 from mixmansion.core.usecases import (
     AdapterSpec,
     ApplyResult,
@@ -281,3 +282,79 @@ def test_get_plan_warns_on_orphaned_songs(fake_app, caplog):
     with caplog.at_level(logging.WARNING):
         app.get_plan(ref)
     assert "no playlist" in caplog.text
+
+
+# ── buckets ──────────────────────────────────────────────────────────────────
+# FakeBucketCategorizer (registered as "bucket" in fake_app) buckets songs 1,2 -> "x",
+# 3,4 -> "y", and leaves 5,6 uncovered (their own bucket, key None).
+
+
+class SameCategorizer(FakeCategorizer):
+    """Gives every song the same vector, so the fake grouper connects them all."""
+
+    name = "same"
+
+    def vectors(self, songs, params):
+        return SongVectors(
+            dimension="same", ids=[s.id for s in songs], vectors=np.ones((len(songs), 2)), labels={}
+        )
+
+
+def test_buckets_keep_songs_from_different_buckets_apart(fake_app):
+    app, instances = fake_app
+    app.add_to_pool("default", "fake", {})
+    app._adapters["categorizer"]["same"] = SameCategorizer
+    instances[SameCategorizer] = SameCategorizer()
+
+    spec = PlanSpec(
+        buckets=[AdapterSpec(name="bucket")], categorizers={"same": CategorizerSpec(weight=1.0)}
+    )
+    ref = app.build_plan("default", spec)
+    plan = app.get_plan(ref)
+
+    bucket_x, bucket_y, bucket_none = {tid(1), tid(2)}, {tid(3), tid(4)}, {tid(5), tid(6)}
+    playlist_ids = {frozenset(t.id for t in p.tracks) for p in plan.playlists}
+    assert playlist_ids == {frozenset(bucket_x), frozenset(bucket_y), frozenset(bucket_none)}
+    assert not plan.unassigned  # the uncovered songs still land in their own bucket
+
+
+def test_buckets_only_makes_one_playlist_per_bucket(fake_app):
+    app, instances = fake_app
+    app.add_to_pool("default", "fake", {})
+
+    spec = PlanSpec(buckets=[AdapterSpec(name="bucket")], categorizers={})
+    ref = app.build_plan("default", spec)
+    plan = app.get_plan(ref)
+
+    assert len(plan.playlists) == 3
+    playlist_ids = {frozenset(t.id for t in p.tracks) for p in plan.playlists}
+    assert playlist_ids == {
+        frozenset({tid(1), tid(2)}),
+        frozenset({tid(3), tid(4)}),
+        frozenset({tid(5), tid(6)}),
+    }
+    assert plan.generated["buckets"] == {"bucket": {}}
+
+
+def test_non_bucketable_categorizer_as_bucket_rejected(fake_app):
+    app, _instances = fake_app
+    app.add_to_pool("default", "fake", {})
+
+    spec = PlanSpec(buckets=[AdapterSpec(name="fake")])
+    with pytest.raises(MixMansionError, match="bucket"):
+        app.build_plan("default", spec)
+
+
+def test_categorizer_used_as_both_bucket_and_weight_is_dropped_from_weights(fake_app):
+    app, _instances = fake_app
+    app.add_to_pool("default", "fake", {})
+
+    spec = PlanSpec(
+        buckets=[AdapterSpec(name="bucket")],
+        categorizers={"bucket": CategorizerSpec(weight=1.0), "fake": CategorizerSpec(weight=1.0)},
+    )
+    ref = app.build_plan("default", spec)
+    plan = app.get_plan(ref)
+
+    assert "bucket" not in plan.generated["weights"]
+    assert "fake" in plan.generated["weights"]

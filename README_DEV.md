@@ -136,6 +136,7 @@ Notes on the models (`core/models.py`):
 
 - `SongPool.add()` dedupes by ISRC first, then by Spotify id, merging `sources` on a match. ISRC is checked first because a single and its parent album can have different Spotify track ids for the same recording.
 - `SongVectors.vectors` holds one row per song in `ids`, compared by cosine similarity. `ids` lists only the songs this dimension actually had data for; the others are *uncovered* (used for fusion, see [Grouping explained](#4-grouping-explained)). A categorizer returns raw vectors: nearest neighbours, calibration and weighting all happen in the grouper, so every dimension is fused on equal terms.
+- `SongVectors.subset(ids)` returns a copy with only the rows (and labels) for the given song ids, keeping their original relative order. `build_plan` uses it to slice each weighted dimension down to one bucket before grouping.
 - `PlanTrack.id` is validated and normalized through `parse_track_id`, which accepts a bare 22-character Spotify id, a `spotify:track:...` URI, or an `open.spotify.com/.../track/...` URL — this is what lets you paste any of the three into a plan file.
 - `Playlist` rejects duplicate track ids within itself (`_no_duplicates` validator).
 - `Plan.approved` is the gate `apply_plan` checks; a plan with `approved: false` cannot be applied.
@@ -147,7 +148,7 @@ Notes on the models (`core/models.py`):
 Key flows:
 
 - **`add_to_pool`**: runs one retriever, loads the pool store, merges in the new songs (`SongPool.add`), saves, and returns counts (added / total / duplicates).
-- **`build_plan`**: runs every categorizer with weight > 0 to get a `SongVectors` each, runs the grouper on all of them together, runs the namer on the resulting groups, and assembles a `Plan`. After building the plan, it asserts that every pool song ended up either in a playlist or in `unassigned` — the "every song is placed" invariant — and raises `RuntimeError` if a grouper broke it. This is a defensive check on adapter correctness, not a normal user-facing error.
+- **`build_plan`**: first runs the bucket categorizers (`PlanSpec.buckets`, default `settings.buckets`), if any — see [Buckets](#buckets) below — then runs every remaining categorizer with weight > 0 to get a `SongVectors` each, runs the grouper per bucket on the dimensions sliced to that bucket, runs the namer on the resulting groups, and assembles a `Plan`. After building the plan, it asserts that every pool song ended up either in a playlist or in `unassigned` — the "every song is placed" invariant — and raises `RuntimeError` if a grouper broke it. This is a defensive check on adapter correctness, not a normal user-facing error.
 - **`get_plan`**: loads a plan and warns (log level WARNING) about "orphans" — songs from the plan's original pool that are in no playlist anymore, which can happen after manual edits.
 - **`apply_plan`**: refuses to run unless `plan.approved`. For each playlist: if it already has a `spotify_id`, replace its tracks; if that fails because the playlist was deleted (`PlaylistNotFound`), fall through to recreating it. When creating a playlist, the use case saves the plan **immediately after** `writer.create()` returns the new id and **before** calling `replace_tracks` — so if the process crashes mid-run, re-running `apply` never creates a duplicate playlist; it just resumes.
 
@@ -176,6 +177,10 @@ sequenceDiagram
     M->>PL: save(plan) right after each create()
 ```
 One CLI run from `pool add` through `apply`; the plan is saved right after each playlist is created so a crash mid-`apply` never produces a duplicate playlist on retry.
+
+### Buckets
+
+A categorizer opts in to splitting the pool by setting `bucketable: ClassVar[bool] = True` (`categorizers/port.py`); for such a categorizer, `labels[song_id][0]` is the song's bucket key instead of a display tag. `PlanSpec.buckets` (default `settings.buckets` / `MIXMANSION_BUCKETS`) names which categorizers to use this way — `build_plan` rejects a non-bucketable one with `MixMansionError`. Songs are partitioned by the tuple of their bucket keys across all bucket categorizers; a song missing a key from a given bucket categorizer shares the `None` key for that dimension, so uncovered songs still end up in a (shared) bucket rather than being dropped. A categorizer used as a bucket is dropped from the weighted categorizers even if it also has a weight, since every song in a bucket already shares that value. The grouper then runs once per bucket, on each weighted dimension sliced to that bucket's songs via `SongVectors.subset`; songs in different buckets never land in the same playlist. If there are no weighted categorizers, each bucket becomes one playlist directly, skipping the grouper. The plan itself stays a flat list of playlists — buckets are a `build_plan`-time partition, not a plan-file concept — and `plan.generated["buckets"]` records the bucket categorizers' resolved params, mirroring `generated["categorizers"]`. A language categorizer (bucketable) is one example of a categorizer that could use this.
 
 ## 4. Grouping explained
 

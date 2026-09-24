@@ -1,6 +1,8 @@
 """Tests for SongPool.add dedup/merge behavior."""
 
-from mixmansion.core.models import Song, SongPool
+import numpy as np
+
+from mixmansion.core.models import Song, SongPool, SongVectors
 
 
 def make_song(**overrides):
@@ -87,3 +89,17 @@ def test_add_does_not_mutate_caller_song_on_later_merge():
     # the pool's stored copy gained "b", but the caller's original object must not
     assert original.sources == ["a"]
     assert pool.songs[0].sources == ["a", "b"]
+
+
+def test_song_vectors_subset_keeps_matching_rows_and_labels():
+    vectors = SongVectors(
+        dimension="fake",
+        ids=["t1", "t2", "t3"],
+        vectors=np.array([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]),
+        labels={"t1": ["x"], "t2": ["y"], "t3": ["z"]},
+    )
+    sub = vectors.subset({"t1", "t3"})
+    assert sub.dimension == "fake"
+    assert sub.ids == ["t1", "t3"]
+    assert np.array_equal(sub.vectors, np.array([[1.0, 0.0], [1.0, 1.0]]))
+    assert sub.labels == {"t1": ["x"], "t3": ["z"]}
