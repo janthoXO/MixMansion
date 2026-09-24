@@ -30,7 +30,7 @@ def test_precedence_kwarg_env_dotenv_default(tmp_path, monkeypatch):
 
 
 def test_app_settings_defaults_and_json_weights(monkeypatch):
-    assert AppSettings().weights == {"genre": 0.5, "mood": 0.5}
+    assert AppSettings().weights == {"genre": 0.5, "theme": 0.5}
     monkeypatch.setenv("MIXMANSION_WEIGHTS", '{"genre": 1}')
     assert AppSettings().weights == {"genre": 1.0}
 
