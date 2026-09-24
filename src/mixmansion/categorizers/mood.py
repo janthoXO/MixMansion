@@ -12,9 +12,8 @@ from pydantic_settings import SettingsConfigDict
 
 from mixmansion.categorizers import lrclib
 from mixmansion.categorizers.port import Categorizer
-from mixmansion.core.models import SimilarityGraph, Song
+from mixmansion.core.models import Song, SongVectors
 from mixmansion.shared.config import AdapterParams, AppSettings
-from mixmansion.shared.graph import cosine_knn
 from mixmansion.shared.http import session
 from mixmansion.shared.llm import LLMError, LLMService
 
@@ -51,7 +50,6 @@ class MoodCategorizer(Categorizer):
 
     class Params(AdapterParams):
         model_config = SettingsConfigDict(env_prefix="MIXMANSION_CATEGORIZER_MOOD_")
-        k: int = Field(15, ge=1, description="Neighbours kept per song")
         batch_size: int = Field(10, ge=1, description="Songs per LLM request")
         tags_per_song: int = Field(8, ge=1, description="Target number of tags per song")
         lyrics_max_chars: int = Field(1500, ge=0, description="Lyrics excerpt sent to the LLM")
@@ -60,7 +58,7 @@ class MoodCategorizer(Categorizer):
         self.llm = llm
         self.http = session(settings.workspace)
 
-    def similarity(self, songs: list[Song], params: Params) -> SimilarityGraph:
+    def vectors(self, songs: list[Song], params: Params) -> SongVectors:
         with ThreadPoolExecutor(max_workers=8) as pool:
             texts = dict(
                 zip(
@@ -109,13 +107,13 @@ class MoodCategorizer(Categorizer):
 
         covered = [s.id for s in songs if s.id in tags]
         if not covered:
-            return SimilarityGraph(dimension=self.name, edges={}, covered=set())
+            return SongVectors.empty(self.name)
         vocab = list(dict.fromkeys(t for i in covered for t in tags[i]))
         tag_vectors = dict(zip(vocab, self.llm.embed(vocab), strict=True))
         vectors = np.array([np.mean([tag_vectors[t] for t in tags[i]], axis=0) for i in covered])
-        return SimilarityGraph(
+        return SongVectors(
             dimension=self.name,
-            edges=cosine_knn(covered, vectors, params.k),
-            covered=set(covered),
+            ids=covered,
+            vectors=vectors,
             labels={i: tags[i] for i in covered},
         )

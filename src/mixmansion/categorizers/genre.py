@@ -12,9 +12,8 @@ from pydantic_settings import SettingsConfigDict
 from mixmansion.categorizers.lastfm import Lastfm, LastfmSettings
 from mixmansion.categorizers.port import Categorizer
 from mixmansion.categorizers.spotify import artist_genres
-from mixmansion.core.models import SimilarityGraph, Song
+from mixmansion.core.models import Song, SongVectors
 from mixmansion.shared.config import AdapterParams, AppSettings, load
-from mixmansion.shared.graph import cosine_knn
 from mixmansion.shared.http import session
 from mixmansion.shared.spotify import SpotifyService
 
@@ -51,7 +50,6 @@ class GenreCategorizer(Categorizer):
 
     class Params(AdapterParams):
         model_config = SettingsConfigDict(env_prefix="MIXMANSION_CATEGORIZER_GENRE_")
-        k: int = Field(15, ge=1, description="Neighbours kept per song")
         spotify_weight: float = Field(1.0, ge=0, description="Weight of Spotify artist genres")
         lastfm_weight: float = Field(1.0, ge=0, description="Weight of Last.fm tags")
         lastfm_min_count: int = Field(
@@ -63,7 +61,7 @@ class GenreCategorizer(Categorizer):
         self.spotify = spotify
         self.http = session(settings.workspace)
 
-    def similarity(self, songs: list[Song], params: Params) -> SimilarityGraph:
+    def vectors(self, songs: list[Song], params: Params) -> SongVectors:
         weights: dict[str, dict[str, float]] = {s.id: {} for s in songs}
 
         def add(song: Song, tags: dict[str, float], factor: float) -> None:
@@ -100,10 +98,10 @@ class GenreCategorizer(Categorizer):
         for row, song_id in enumerate(covered):
             for tag, w in weights[song_id].items():
                 vectors[row, vocab[tag]] = w
-        return SimilarityGraph(
+        return SongVectors(
             dimension=self.name,
-            edges=cosine_knn(covered, vectors, params.k) if covered else {},
-            covered=set(covered),
+            ids=covered,
+            vectors=vectors,
             labels={
                 i: sorted(weights[i], key=lambda t: -weights[i][t])[: params.labels_per_song]
                 for i in covered

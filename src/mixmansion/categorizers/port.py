@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import ClassVar
 
-from mixmansion.core.models import SimilarityGraph, Song
+from mixmansion.core.models import Song, SongVectors
 from mixmansion.shared.config import AdapterParams
 
 
@@ -10,4 +10,4 @@ class Categorizer(ABC):
     Params: ClassVar[type[AdapterParams]]
 
     @abstractmethod
-    def similarity(self, songs: list[Song], params: AdapterParams) -> SimilarityGraph: ...
+    def vectors(self, songs: list[Song], params: AdapterParams) -> SongVectors: ...

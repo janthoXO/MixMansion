@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import ClassVar
 
-from mixmansion.core.models import Grouping, SimilarityGraph, Song
+from mixmansion.core.models import Grouping, Song, SongVectors
 from mixmansion.shared.config import AdapterParams
 
 
@@ -13,7 +13,7 @@ class Grouper(ABC):
     def group(
         self,
         songs: list[Song],
-        graphs: list[SimilarityGraph],
+        dimensions: list[SongVectors],
         weights: dict[str, float],
         params: AdapterParams,
     ) -> Grouping: ...
