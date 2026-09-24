@@ -134,26 +134,26 @@ class MixMansion:
         categorizers = spec.categorizers or {
             name: CategorizerSpec(weight=w) for name, w in self.settings.weights.items()
         }
-        graphs, weights, used = [], {}, {}
+        dimensions, weights, used = [], {}, {}
         labels: dict[str, list[str]] = {}
         for name, cat in categorizers.items():
             if cat.weight <= 0:
                 continue
             adapter, p = self._adapter("categorizer", name, cat.params)
-            graph = adapter.similarity(songs, p)
-            graphs.append(graph)
-            weights[graph.dimension] = cat.weight
+            dim = adapter.vectors(songs, p)
+            dimensions.append(dim)
+            weights[dim.dimension] = cat.weight
             used[name] = p.model_dump(mode="json")
-            for song_id, tags in graph.labels.items():
+            for song_id, tags in dim.labels.items():
                 labels[song_id] = labels.get(song_id, []) + [
                     t for t in tags if t not in labels.get(song_id, [])
                 ]
-        if not graphs:
+        if not dimensions:
             raise MixMansionError("no categorizer has a weight > 0")
 
         g_spec = spec.grouper or AdapterSpec(name=self.settings.grouper)
         grouper, g_params = self._adapter("grouper", g_spec.name, g_spec.params)
-        grouping = grouper.group(songs, graphs, weights, g_params)
+        grouping = grouper.group(songs, dimensions, weights, g_params)
 
         n_spec = spec.namer or AdapterSpec(name=self.settings.namer)
         namer, n_params = self._adapter("namer", n_spec.name, n_spec.params)

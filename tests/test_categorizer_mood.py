@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import requests
-from fakes import tid
+from fakes import cos, tid
 
 from mixmansion.categorizers import lrclib
 from mixmansion.categorizers.mood import MoodCategorizer, SongTags, TagResponse, normalize
@@ -69,7 +69,7 @@ def test_instrumental_and_misses_have_no_lyrics():
     assert lrclib.lyrics(FakeSession(error=requests.ConnectionError("offline")), song(1)) is None
 
 
-# ── mood graph ──────────────────────────────────────────────────────────────
+# ── mood vectors ─────────────────────────────────────────────────────────────
 
 SAD = ["melancholic", "rainy", "heartbreak"]
 HAPPY = ["euphoric", "sunny", "party"]
@@ -124,11 +124,11 @@ def categorizer(llm, monkeypatch, lyrics=None):
 def test_similar_tags_are_neighbours(monkeypatch):
     songs = [song(i, "sad" if i < 3 else "happy") for i in range(6)]
     llm = FakeLLM({"sad": SAD, "happy": HAPPY})
-    graph = categorizer(llm, monkeypatch).similarity(songs, MoodCategorizer.Params(k=2))
-    sad, happy = {tid(i) for i in range(3)}, {tid(i) for i in range(3, 6)}
-    assert graph.edges and all({a, b} <= sad or {a, b} <= happy for a, b in graph.edges)
-    assert graph.covered == sad | happy
-    assert graph.labels[tid(0)] == SAD
+    dim = categorizer(llm, monkeypatch).vectors(songs, MoodCategorizer.Params())
+    assert cos(dim, tid(0), tid(1)) > 0.9 and cos(dim, tid(3), tid(4)) > 0.9
+    assert cos(dim, tid(0), tid(3)) < 0.3
+    assert dim.ids == [tid(i) for i in range(6)]
+    assert dim.labels[tid(0)] == SAD
 
 
 def test_batches_and_lyrics_in_the_request(monkeypatch):
@@ -136,7 +136,7 @@ def test_batches_and_lyrics_in_the_request(monkeypatch):
     llm = FakeLLM({"sad": SAD})
     lyrics = {tid(0): "x" * 50}
     params = MoodCategorizer.Params(batch_size=2, lyrics_max_chars=10, tags_per_song=6)
-    categorizer(llm, monkeypatch, lyrics).similarity(songs, params)
+    categorizer(llm, monkeypatch, lyrics).vectors(songs, params)
     assert [len(user["songs"]) for _, user in llm.requests] == [2, 2, 1]
     first = llm.requests[0][1]["songs"]
     assert first[0]["lyrics"] == "x" * 10 and first[1]["lyrics"] is None
@@ -146,16 +146,16 @@ def test_batches_and_lyrics_in_the_request(monkeypatch):
 def test_songs_missing_from_a_batch_are_retried_alone(monkeypatch):
     songs = [song(i, "sad") for i in range(3)]
     llm = FakeLLM({"sad": SAD}, drop={tid(1)})
-    graph = categorizer(llm, monkeypatch).similarity(songs, MoodCategorizer.Params())
-    assert tid(1) in graph.covered
+    dim = categorizer(llm, monkeypatch).vectors(songs, MoodCategorizer.Params())
+    assert tid(1) in dim.ids
     assert [len(u["songs"]) for _, u in llm.requests] == [3, 1]
 
 
 def test_failed_batch_is_retried_then_left_uncovered(monkeypatch, caplog):
     songs = [song(i, "sad") for i in range(2)]
     llm = FakeLLM({"sad": SAD}, fail_batches=2)  # the batch and the first single retry fail
-    graph = categorizer(llm, monkeypatch).similarity(songs, MoodCategorizer.Params())
-    assert graph.covered == {tid(1)}
+    dim = categorizer(llm, monkeypatch).vectors(songs, MoodCategorizer.Params())
+    assert dim.ids == [tid(1)]
     assert "no mood tags" in caplog.text
 
 
@@ -165,9 +165,9 @@ def test_each_unique_tag_is_embedded_once(monkeypatch):
     embedded = []
     real = llm.embed
     llm.embed = lambda texts: embedded.append(list(texts)) or real(texts)
-    graph = categorizer(llm, monkeypatch).similarity(songs, MoodCategorizer.Params())
+    dim = categorizer(llm, monkeypatch).vectors(songs, MoodCategorizer.Params())
     assert embedded == [["melancholic", "rainy"]]
-    assert graph.labels[tid(0)] == ["melancholic", "rainy"]
+    assert dim.labels[tid(0)] == ["melancholic", "rainy"]
 
 
 def test_normalize():

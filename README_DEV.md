@@ -61,7 +61,7 @@ src/mixmansion/
   writers/         port.py + one module per writer adapter
   pool_stores/     port.py + one module per pool store adapter
   plan_stores/     port.py + one module per plan store adapter
-  shared/          config.py, http.py, graph.py, spotify.py — helpers used by 2+ port folders
+  shared/          config.py, http.py, llm.py, spotify.py — helpers used by 2+ port folders
   interfaces/      cli.py (REST later)
   bootstrap.py     composition root
 ```
@@ -87,10 +87,10 @@ classDiagram
         songs: list~Song~
         add(songs) int
     }
-    class SimilarityGraph {
+    class SongVectors {
         dimension: str
-        edges: dict~tuple,float~
-        covered: set~str~
+        ids: list~str~
+        vectors: ndarray
         labels: dict~str,list~
     }
     class Grouping {
@@ -130,12 +130,12 @@ classDiagram
     Plan "1" o-- "*" Playlist
     Playlist "1" o-- "*" PlanTrack
 ```
-`Song`/`SongPool` are the retrieved data; `SimilarityGraph` is one categorizer's output; `Grouping` is the grouper's output; `Plan`/`Playlist`/`PlanTrack` are what gets written to disk and, on `apply`, to Spotify.
+`Song`/`SongPool` are the retrieved data; `SongVectors` is one categorizer's output; `Grouping` is the grouper's output; `Plan`/`Playlist`/`PlanTrack` are what gets written to disk and, on `apply`, to Spotify.
 
 Notes on the models (`core/models.py`):
 
 - `SongPool.add()` dedupes by ISRC first, then by Spotify id, merging `sources` on a match. ISRC is checked first because a single and its parent album can have different Spotify track ids for the same recording.
-- `SimilarityGraph.edges` maps `(song_id_a, song_id_b)` with `a < b` to a weight in `[0, 1]`; `covered` is the set of songs this dimension actually had data for (used for fusion, see [Grouping explained](#4-grouping-explained)).
+- `SongVectors.vectors` holds one row per song in `ids`, compared by cosine similarity. `ids` lists only the songs this dimension actually had data for; the others are *uncovered* (used for fusion, see [Grouping explained](#4-grouping-explained)). A categorizer returns raw vectors: nearest neighbours, calibration and weighting all happen in the grouper, so every dimension is fused on equal terms.
 - `PlanTrack.id` is validated and normalized through `parse_track_id`, which accepts a bare 22-character Spotify id, a `spotify:track:...` URI, or an `open.spotify.com/.../track/...` URL — this is what lets you paste any of the three into a plan file.
 - `Playlist` rejects duplicate track ids within itself (`_no_duplicates` validator).
 - `Plan.approved` is the gate `apply_plan` checks; a plan with `approved: false` cannot be applied.
@@ -147,7 +147,7 @@ Notes on the models (`core/models.py`):
 Key flows:
 
 - **`add_to_pool`**: runs one retriever, loads the pool store, merges in the new songs (`SongPool.add`), saves, and returns counts (added / total / duplicates).
-- **`build_plan`**: runs every categorizer with weight > 0 to get a `SimilarityGraph` each, runs the grouper on all of them together, runs the namer on the resulting groups, and assembles a `Plan`. After building the plan, it asserts that every pool song ended up either in a playlist or in `unassigned` — the "every song is placed" invariant — and raises `RuntimeError` if a grouper broke it. This is a defensive check on adapter correctness, not a normal user-facing error.
+- **`build_plan`**: runs every categorizer with weight > 0 to get a `SongVectors` each, runs the grouper on all of them together, runs the namer on the resulting groups, and assembles a `Plan`. After building the plan, it asserts that every pool song ended up either in a playlist or in `unassigned` — the "every song is placed" invariant — and raises `RuntimeError` if a grouper broke it. This is a defensive check on adapter correctness, not a normal user-facing error.
 - **`get_plan`**: loads a plan and warns (log level WARNING) about "orphans" — songs from the plan's original pool that are in no playlist anymore, which can happen after manual edits.
 - **`apply_plan`**: refuses to run unless `plan.approved`. For each playlist: if it already has a `spotify_id`, replace its tracks; if that fails because the playlist was deleted (`PlaylistNotFound`), fall through to recreating it. When creating a playlist, the use case saves the plan **immediately after** `writer.create()` returns the new id and **before** calling `replace_tracks` — so if the process crashes mid-run, re-running `apply` never creates a duplicate playlist; it just resumes.
 
@@ -165,8 +165,8 @@ sequenceDiagram
     U->>M: pool add playlist
     M->>PS: load / save pool
     U->>M: plan
-    M->>Cat: similarity(songs) per dimension
-    M->>Gr: group(songs, graphs, weights)
+    M->>Cat: vectors(songs) per dimension
+    M->>Gr: group(songs, dimensions, weights)
     M->>N: name_groups(groups, labels)
     M->>PL: save(plan)
     U->>U: edit plan.yaml, set approved: true
@@ -179,19 +179,21 @@ One CLI run from `pool add` through `apply`; the plan is saved right after each 
 
 ## 4. Grouping explained
 
-The `louvain` grouper (`groupers/louvain.py`) combines the per-dimension `SimilarityGraph`s into playlists:
+The `louvain` grouper (`groupers/louvain.py`) combines the per-dimension `SongVectors` into playlists:
 
-1. **Fusion.** For a pair of songs, only the dimensions that have data for *both* songs (i.e. both are in that dimension's `covered` set) count toward the fused weight; each counted dimension's edge weight (0 if there's no edge) is averaged, weighted by the user's per-dimension weight. This means a song with no mood data (e.g. an instrumental with no lyrics) is grouped on genre alone instead of being penalized as dissimilar to everything.
-2. **Communities.** The fused graph is partitioned with `networkx.community.louvain_communities`, tuned by `resolution` (higher = more, smaller groups).
-3. **Merging small groups.** Communities smaller than `min_size` are repeatedly folded into the community they share the highest mean edge weight with (an unconnected one goes to the largest), until none are left undersized (or only one community remains).
-4. **Soft assignment.** Each song's affinity to a community is the mean fused edge weight to that community's members. A song joins its best-fitting community, plus any other community whose affinity is within a factor of `tau` of the best (`A(s, c) >= (1 - tau) * A(s, c*)`), up to `max_memberships` playlists.
-5. **Score and order.** Each song's score in a group is its affinity to that group; groups list songs sorted by score, descending, so the plan's playlist order roughly reflects "most typical first."
-6. **Unassigned.** Songs with no edges at all in the fused graph land in `Grouping.unassigned` rather than being forced into a group.
+1. **Similarity per dimension.** Each dimension's vectors are mean-centered, then compared pairwise by cosine similarity, clipped to `[0, 1]`. Centering calibrates the dimensions against each other: text embeddings put almost any two songs around 0.8 while sparse genre vectors put most pairs near 0, so without it a weight of 1:1 would not mean equal influence. After centering, 0 means "no more alike than the pool's average".
+2. **Fusion.** For a pair of songs, only the dimensions that have data for *both* songs (both are in that dimension's `ids`) count; their similarities are averaged, weighted by the user's per-dimension weight. Fusion is dense: every pair counts, not just each dimension's nearest neighbours, so the weights mean exactly what they say. A song with no data in one dimension (e.g. an instrumental with no lyrics) is grouped by the others instead of being penalized as dissimilar to everything.
+3. **Communities.** Each song keeps its `k` most similar songs in the fused matrix as edges, and that graph is partitioned with `networkx.community.louvain_communities`, tuned by `resolution` (higher = more, smaller groups).
+4. **Merging small groups.** Communities smaller than `min_size` are repeatedly folded into the community with the highest mean fused similarity to them (an unconnected one goes to the largest), until none are left undersized (or only one community remains).
+5. **Soft assignment.** Each song's affinity to a community is its mean fused similarity to that community's other members. A song joins its best-fitting community, plus any other community whose affinity is within a factor of `tau` of the best (`A(s, c) >= (1 - tau) * A(s, c*)`), up to `max_memberships` playlists.
+6. **Score and order.** Each song's score in a group is its affinity to that group; groups list songs sorted by score, descending, so the plan's playlist order roughly reflects "most typical first."
+7. **Unassigned.** Songs with no edges in the kNN graph (no dimension covers them, or they're no more alike than average to anyone) land in `Grouping.unassigned` rather than being forced into a group.
 
 Tuning knobs (env prefix `MIXMANSION_GROUPER_LOUVAIN_`, or per run with `--opt louvain.<field>=<value>`):
 
 | Field | Default | Effect |
 |---|---|---|
+| `k` | `15` | Neighbours kept per song in the graph Louvain partitions |
 | `resolution` | `1.0` | Higher means more, smaller groups |
 | `min_size` | `15` | Communities smaller than this get merged into another |
 | `tau` | `0.05` | How close a second-best fit has to be for a song to also join that group |

@@ -148,8 +148,8 @@ def test_invariant_violation_raises(fake_app):
     class DroppingGrouper(FakeGrouper):
         name = "dropping"
 
-        def group(self, songs, graphs, weights, params):
-            grouping = super().group(songs, graphs, weights, params)
+        def group(self, songs, dimensions, weights, params):
+            grouping = super().group(songs, dimensions, weights, params)
             grouping.groups[0].songs.pop()  # silently drops a song
             return grouping
 
@@ -168,11 +168,8 @@ def test_every_song_placed_or_unassigned(fake_app):
     class SparseCategorizer(FakeCategorizer):
         name = "sparse"
 
-        def similarity(self, songs, params):
-            graph = super().similarity(songs, params)
-            isolated = songs[-1].id
-            graph.edges = {k: v for k, v in graph.edges.items() if isolated not in k}
-            return graph
+        def vectors(self, songs, params):
+            return super().vectors(songs[:-1], params)  # the last song is uncovered
 
     app._adapters["categorizer"]["sparse"] = SparseCategorizer
     instances[SparseCategorizer] = SparseCategorizer()

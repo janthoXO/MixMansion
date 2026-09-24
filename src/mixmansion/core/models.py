@@ -3,7 +3,15 @@
 import re
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
+import numpy as np
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 _TRACK_ID = re.compile(
     r"^(?:spotify:track:|https?://open\.spotify\.com/(?:intl-[\w-]+/)?track/)?([0-9A-Za-z]{22})(?:\?.*)?$"
@@ -55,11 +63,25 @@ class SongPool(BaseModel):
         return added
 
 
-class SimilarityGraph(BaseModel):
+class SongVectors(BaseModel):
+    """One categorizer's output: a vector per covered song, compared by cosine similarity."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     dimension: str  # categorizer name
-    edges: dict[tuple[str, str], float]  # (song_id_a, song_id_b) -> weight in [0, 1], a < b
-    covered: set[str]  # songs this dimension had data for
+    ids: list[str]  # songs this dimension had data for, one per row; the rest are uncovered
+    vectors: np.ndarray  # shape (len(ids), d)
     labels: dict[str, list[str]] = {}  # optional human-readable tags per song
+
+    @model_validator(mode="after")
+    def _one_row_per_id(self):
+        if self.vectors.ndim != 2 or len(self.vectors) != len(self.ids):
+            raise ValueError(f"{self.dimension}: need one vector row per id")
+        return self
+
+    @classmethod
+    def empty(cls, dimension: str) -> "SongVectors":
+        return cls(dimension=dimension, ids=[], vectors=np.zeros((0, 0)))
 
 
 class ScoredSong(BaseModel):

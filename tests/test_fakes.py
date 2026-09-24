@@ -30,21 +30,20 @@ def test_fake_retriever():
 def test_fake_categorizer():
     categorizer = FakeCategorizer()
     params = FakeCategorizer.Params()
-    graph = categorizer.similarity(SONGS, params)
-    assert graph.covered == {s.id for s in SONGS}
-    assert graph.labels[tid(1)] == ["even"]
-    assert graph.labels[tid(2)] == ["odd"]
-    assert all(a < b for a, b in graph.edges)
-    assert (tid(1), tid(3)) in graph.edges  # both even-indexed
-    assert (tid(1), tid(2)) not in graph.edges  # different clusters
+    dim = categorizer.vectors(SONGS, params)
+    assert dim.ids == [s.id for s in SONGS]
+    assert dim.labels[tid(1)] == ["even"]
+    assert dim.labels[tid(2)] == ["odd"]
+    assert dim.vectors[0] @ dim.vectors[2] > 0  # both even-indexed
+    assert dim.vectors[0] @ dim.vectors[1] == 0  # different clusters
 
 
 def test_fake_grouper():
     grouper = FakeGrouper()
     params = FakeGrouper.Params()
     categorizer = FakeCategorizer()
-    graph = categorizer.similarity(SONGS, FakeCategorizer.Params())
-    grouping = grouper.group(SONGS, [graph], {}, params)
+    dim = categorizer.vectors(SONGS, FakeCategorizer.Params())
+    grouping = grouper.group(SONGS, [dim], {}, params)
     assert len(grouping.groups) == 2
     assert not grouping.unassigned
     ids = {s.song_id for group in grouping.groups for s in group.songs}

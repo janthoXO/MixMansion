@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 import spotipy
-from fakes import tid
+from fakes import cos, tid
 from requests_cache import CachedSession
 
 from mixmansion.categorizers.genre import GenreCategorizer, normalize
@@ -60,19 +60,18 @@ def categorizer(monkeypatch, spotify_genres, lastfm=None):
 
 def test_rock_neighbours_rock_not_techno(monkeypatch):
     songs = [song(1, "a_rock"), song(2, "b_rock"), song(3, "c_techno"), song(4, "d_techno")]
-    graph = categorizer(monkeypatch, ROCK | TECHNO).similarity(
+    dim = categorizer(monkeypatch, ROCK | TECHNO).vectors(
         songs, GenreCategorizer.Params(lastfm_weight=0)
     )
-    assert (tid(1), tid(2)) in graph.edges and (tid(3), tid(4)) in graph.edges
-    assert (tid(1), tid(3)) not in graph.edges and (tid(2), tid(4)) not in graph.edges
-    assert graph.labels[tid(2)] == ["rock", "hard rock"]  # normalized, weight order
+    assert cos(dim, tid(1), tid(2)) > 0 and cos(dim, tid(3), tid(4)) > 0
+    assert cos(dim, tid(1), tid(3)) == 0 and cos(dim, tid(2), tid(4)) == 0
+    assert dim.labels[tid(2)] == ["rock", "hard rock"]  # normalized, weight order
 
 
 def test_songs_without_data_are_uncovered(monkeypatch):
     songs = [song(1, "a_rock"), song(2, "b_rock"), song(3, "unknown")]
-    graph = categorizer(monkeypatch, ROCK).similarity(songs, GenreCategorizer.Params())
-    assert graph.covered == {tid(1), tid(2)}
-    assert all(tid(3) not in pair for pair in graph.edges)
+    dim = categorizer(monkeypatch, ROCK).vectors(songs, GenreCategorizer.Params())
+    assert dim.ids == [tid(1), tid(2)]
 
 
 def test_lastfm_tags_with_min_count_stoplist_and_artist_fallback(monkeypatch):
@@ -82,9 +81,9 @@ def test_lastfm_tags_with_min_count_stoplist_and_artist_fallback(monkeypatch):
     )
     songs = [song(1, "x"), song(2, "y")]
     params = GenreCategorizer.Params(spotify_weight=0, lastfm_min_count=10)
-    graph = categorizer(monkeypatch, {}, lastfm).similarity(songs, params)
-    assert graph.labels == {tid(1): ["shoegaze"], tid(2): ["shoegaze"]}
-    assert graph.edges == {(tid(1), tid(2)): pytest.approx(1.0)}
+    dim = categorizer(monkeypatch, {}, lastfm).vectors(songs, params)
+    assert dim.labels == {tid(1): ["shoegaze"], tid(2): ["shoegaze"]}
+    assert cos(dim, tid(1), tid(2)) == pytest.approx(1.0)
     methods = [c["method"] for c in lastfm.calls]
     assert methods.count("artist.getTopTags") == 1  # only for the track Last.fm didn't know
     assert all(c["autocorrect"] == "1" for c in lastfm.calls)
@@ -92,16 +91,16 @@ def test_lastfm_tags_with_min_count_stoplist_and_artist_fallback(monkeypatch):
 
 def test_weights_combine_both_sources(monkeypatch):
     lastfm = FakeLastfmSession(track={("a_rock", "t"): [("grunge", 100)]})
-    graph = categorizer(monkeypatch, ROCK, lastfm).similarity(
+    dim = categorizer(monkeypatch, ROCK, lastfm).vectors(
         [song(1, "a_rock")], GenreCategorizer.Params(spotify_weight=1, lastfm_weight=3)
     )
-    assert graph.labels[tid(1)][0] == "grunge"  # 3 × 1.0 beats the Spotify genres (1.0)
+    assert dim.labels[tid(1)][0] == "grunge"  # 3 × 1.0 beats the Spotify genres (1.0)
 
 
 def test_artists_fetched_once_each(monkeypatch):
     cat = categorizer(monkeypatch, ROCK)
     songs = [song(1, "a_rock"), song(2, "a_rock"), song(3, "b_rock")]
-    cat.similarity(songs, GenreCategorizer.Params(lastfm_weight=0))
+    cat.vectors(songs, GenreCategorizer.Params(lastfm_weight=0))
     assert sorted(cat.spotify.client.calls) == ["a_rock", "b_rock"]
 
 
@@ -109,7 +108,7 @@ def test_missing_lastfm_key_names_the_variable(monkeypatch):
     cat = categorizer(monkeypatch, ROCK)
     monkeypatch.delenv("LASTFM_API_KEY")
     with pytest.raises(ConfigError, match="LASTFM_API_KEY"):
-        cat.similarity([song(1, "a_rock")], GenreCategorizer.Params())
+        cat.vectors([song(1, "a_rock")], GenreCategorizer.Params())
 
 
 def test_normalize():

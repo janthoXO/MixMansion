@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 
+import numpy as np
 from pydantic_settings import SettingsConfigDict
 
 from mixmansion.categorizers.port import Categorizer
@@ -13,9 +14,9 @@ from mixmansion.core.models import (
     Grouping,
     Plan,
     ScoredSong,
-    SimilarityGraph,
     Song,
     SongPool,
+    SongVectors,
 )
 from mixmansion.groupers.port import Grouper
 from mixmansion.namers.port import PlaylistNamer
@@ -40,6 +41,12 @@ def _song(n: int, letter: str) -> Song:
         artist_ids=[f"{letter.lower()}1"],
         duration_ms=180000 + n * 10000,
     )
+
+
+def cos(dim: SongVectors, a: str, b: str) -> float:
+    """Cosine similarity of two covered songs' vectors in one dimension."""
+    va, vb = dim.vectors[dim.ids.index(a)], dim.vectors[dim.ids.index(b)]
+    return float(va @ vb / (np.linalg.norm(va) * np.linalg.norm(vb)))
 
 
 SONGS: list[Song] = [_song(i, letter) for i, letter in enumerate("ABCDEF", start=1)]
@@ -71,24 +78,12 @@ class FakeCategorizer(Categorizer):
         model_config = SettingsConfigDict(env_prefix="MIXMANSION_CATEGORIZER_FAKE_")
         dimension: str = "fake"
 
-    def similarity(self, songs: list[Song], params: AdapterParams) -> SimilarityGraph:
-        edges: dict[tuple[str, str], float] = {}
-        labels: dict[str, list[str]] = {}
-        clusters: dict[int, list[str]] = {0: [], 1: []}
-        for i, song in enumerate(songs):
-            cluster = i % 2
-            clusters[cluster].append(song.id)
-            labels[song.id] = ["even" if cluster == 0 else "odd"]
-        for ids in clusters.values():
-            for i in range(len(ids)):
-                for j in range(i + 1, len(ids)):
-                    a, b = sorted((ids[i], ids[j]))
-                    edges[(a, b)] = 1.0
-        return SimilarityGraph(
+    def vectors(self, songs: list[Song], params: AdapterParams) -> SongVectors:
+        return SongVectors(
             dimension=params.dimension,
-            edges=edges,
-            covered={s.id for s in songs},
-            labels=labels,
+            ids=[s.id for s in songs],
+            vectors=np.array([[1.0, 0.0] if i % 2 == 0 else [0.0, 1.0] for i in range(len(songs))]),
+            labels={s.id: ["even" if i % 2 == 0 else "odd"] for i, s in enumerate(songs)},
         )
 
 
@@ -101,15 +96,18 @@ class FakeGrouper(Grouper):
     def group(
         self,
         songs: list[Song],
-        graphs: list[SimilarityGraph],
+        dimensions: list[SongVectors],
         weights: dict[str, float],
         params: AdapterParams,
     ) -> Grouping:
+        """Connected components of "vectors point the same way" (positive dot product)."""
         adjacency: dict[str, set[str]] = {s.id: set() for s in songs}
-        for graph in graphs:
-            for a, b in graph.edges:
-                adjacency.setdefault(a, set()).add(b)
-                adjacency.setdefault(b, set()).add(a)
+        for dim in dimensions:
+            dots = dim.vectors @ dim.vectors.T
+            for i, a in enumerate(dim.ids):
+                for j, b in enumerate(dim.ids):
+                    if i != j and dots[i, j] > 0:
+                        adjacency[a].add(b)
 
         seen: set[str] = set()
         groups: list[Group] = []
